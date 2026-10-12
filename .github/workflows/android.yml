@@ -1,0 +1,38 @@
+name: Verify and build Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://zyrsakqocyjvfgauwdiz.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_bVxHkS1PiXaiDcxDb16C8A_NU54FpXz
+      - run: npx cap sync android
+      - run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+        working-directory: android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gulf-Origin-Android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14

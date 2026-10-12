@@ -1,0 +1,16 @@
+node_modules/
+.tools/
+artifacts/
+docs/qa/arabic-probe.*
+tsconfig.tsbuildinfo
+dist/
+.env
+.env.*
+!.env.example
+.vercel/
+*.keystore
+*.jks
+android/local.properties
+android/.gradle/
+android/**/build/
+coverage/

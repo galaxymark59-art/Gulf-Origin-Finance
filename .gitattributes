@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.pdf binary
+*.png binary
+*.ttf binary
+*.xlsx binary
+*.jar binary
+public/fonts/OFL.txt -whitespace
+android/gradlew text eol=lf

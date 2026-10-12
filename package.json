@@ -1,0 +1,37 @@
+{
+  "name": "gulf-origin-finance",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "preview": "vite preview --host 127.0.0.1",
+    "android:sync": "npm run build && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.5.3",
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.0.1",
+    "@capacitor/share": "8.0.1",
+    "@capacitor/filesystem": "8.1.2",
+    "@capacitor-community/sqlite": "8.1.1",
+    "@supabase/supabase-js": "2.117.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "lucide-react": "0.468.0",
+    "jspdf": "4.2.1",
+    "exceljs": "4.4.0",
+    "idb": "8.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3",
+    "@types/react": "19.0.3",
+    "@types/react-dom": "19.0.2",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "vitest": "3.2.4",
+    "@vitejs/plugin-react": "6.0.1"
+  }
+}
