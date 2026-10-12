@@ -86,7 +86,7 @@ export function Auth() {
                 setBusy(true);
                 const { error } = await supabase.auth.resetPasswordForEmail(
                   email,
-                  { redirectTo: location.origin },
+                  { redirectTo: native ? 'https://gulf-origin-finance.vercel.app' : location.origin },
                 );
                 setMessage(
                   error
