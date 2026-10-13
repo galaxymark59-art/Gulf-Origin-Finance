@@ -18,3 +18,4 @@ android/**/build/
 coverage/
 desktop/web/
 android/app/google-services.json
+supabase/.temp/
