@@ -8,14 +8,14 @@ Private owner collection management for Gulf Origin International, Saudi Arabia.
 4. Run `npm run dev`; production: `npm run build`.
 5. Run `npm test` for money, reporting, pending-operation recovery and retry tests.
 
-The requested Supabase project is `zyrsakqocyjvfgauwdiz`. Vercel project: Gulf Origin / gulf-origin-finance. GitHub: galaxymark59-art/Gulf-Origin-Finance.
+Live app: [gulf-origin-finance.vercel.app](https://gulf-origin-finance.vercel.app). The requested Supabase project is `zyrsakqocyjvfgauwdiz`. Vercel project: Gulf Origin / gulf-origin-finance. GitHub: galaxymark59-art/Gulf-Origin-Finance.
 
 ## Owner account and persistent login
 The authorized owner is Ahmedmarwan8374@gmail.com. The initial account was created through Supabase Auth. Its password is deliberately absent from source, migrations and client bundles.
 
 `persistSession: true` and `autoRefreshToken: true` keep the account signed in across reloads and app restarts. Native tokens are stored through Android Keystore encryption. PIN / fingerprint lock preserves the underlying session. Sign-out, revoked sessions, password changes, cleared app data or an administrator's session policy can still require sign-in.
 
-There is no merchant sign-in or public sign-up interface. Database access is independently restricted to the sole UUID in `owner_profiles`, not an editable JWT metadata field. Disable public signup in Supabase Auth settings as an additional protection.
+There is no merchant sign-in or public sign-up interface. Database access is independently restricted to the sole UUID in `owner_profiles`, not an editable JWT metadata field. Public signup is disabled in the configured Supabase project. Its Auth site URL points to the live app for password recovery.
 
 ## Database
 The schema lives in `database/schema.sql` and the CLI-created versioned migration in `supabase/migrations/`. This schema was applied to the requested project and its rollback-only ledger acceptance test passed. **Do not rerun the initial schema against an already-provisioned database.** Future changes need additive migrations.
