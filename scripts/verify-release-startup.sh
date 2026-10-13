@@ -2,7 +2,8 @@
 set -euo pipefail
 mkdir -p artifacts/android/release-startup
 # This is a fresh disposable CI emulator. No user data is present.
-adb uninstall com.gulforigin.finance >/dev/null
+# Gradle may already have removed the disposable debug target after instrumentation.
+adb uninstall com.gulforigin.finance >/dev/null 2>&1 || true
 adb install android/app/build/outputs/apk/release/app-release.apk
 adb shell am start -n com.gulforigin.finance/.MainActivity
 for attempt in $(seq 1 20); do

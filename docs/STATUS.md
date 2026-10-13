@@ -15,7 +15,8 @@ Updated 14 October 2026, Asia/Calcutta. Version 1.1.0 source; installer release 
 | Responsive exports | New report generation runs in a worker; browser PDF download succeeds | No claim of millisecond performance on every device or network |
 | Owner payment alerts | Live migration, sender, encrypted credentials and retry scheduler configured; real Google HTTP v1 validation succeeds without sending; queue and permissions tests pass | Actual closed-app phone delivery needs device permission and acceptance |
 | Merchants → Import existing records | CSV, Excel and readable PDF extraction, review, automatic merchant creation and dated history; atomic/idempotent database and balance tests pass | Scanned PDFs need readable export/manual correction; overlapping existing merchants are skipped for review; 10,000 transaction rows per import |
-| Android and Windows installers | Workflows prepared, including actual packaged-app first launch | Version 1.1.0 build/release results not yet recorded here |
+| Windows installer | [Run 38458558410](https://github.com/galaxymark59-art/Gulf-Origin-Finance/actions/runs/38458558410) built the NSIS installer and verified the packaged app reaches sign-in | User's PC installation and tray delivery need acceptance |
+| Android installer | Signed release compiles; debug native first launch passes | Corrected disposable-emulator cleanup check is being rerun before release |
 
 40 automated tests and TypeScript/Vite production build pass. Existing queue durability, lost-response idempotency, startup deadlines, English/Arabic receipts and 5,000-merchant filtering remain tested.
 
