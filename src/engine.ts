@@ -51,6 +51,11 @@ export class FinanceEngine {
   view() {
     return visibleState(this.state);
   }
+  async refresh() {
+    await this.serial(async () => {
+      await this.save({ ...(await this.cloud()), queue: this.state.queue });
+    });
+  }
   async enqueue(op: Operation) {
     const permission = [
       "cash_account",

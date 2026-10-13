@@ -1,5 +1,5 @@
 # Mcube update status
-Updated 13 October 2026, Asia/Calcutta. Version 1.1.0 source; installer release checks are still in progress.
+Updated 14 October 2026, Asia/Calcutta. Version 1.1.0 source; installer release checks are still in progress.
 
 | Change and location | Verification | Remaining limit |
 |---|---|---|
@@ -13,10 +13,11 @@ Updated 13 October 2026, Asia/Calcutta. Version 1.1.0 source; installer release 
 | Shared Savings section, running balance and destination choice | Cash/savings reconciliation and direct savings purchase tests pass | Later entries can change a previously counted day's current cash figure |
 | Reports, presets, filters, A–G cash PDF and Excel | Real XLSX reopened; totals agree with ledger; PDF pages visually inspected | Large histories still synchronize as a full snapshot |
 | Responsive exports | New report generation runs in a worker; browser PDF download succeeds | No claim of millisecond performance on every device or network |
-| Owner payment alerts | Live protected migration and sender function deployed; generic payload, messaging scope, service-only queue and delivery deduplication tests pass | Firebase credentials, Android SDK configuration and real phone closed-app delivery still need verification |
+| Owner payment alerts | Live migration, sender, encrypted credentials and retry scheduler configured; real Google HTTP v1 validation succeeds without sending; queue and permissions tests pass | Actual closed-app phone delivery needs device permission and acceptance |
+| Merchants → Import existing records | CSV, Excel and readable PDF extraction, review, automatic merchant creation and dated history; atomic/idempotent database and balance tests pass | Scanned PDFs need readable export/manual correction; overlapping existing merchants are skipped for review; 10,000 transaction rows per import |
 | Android and Windows installers | Workflows prepared, including actual packaged-app first launch | Version 1.1.0 build/release results not yet recorded here |
 
-35 automated tests and TypeScript/Vite production build pass. Existing queue durability, lost-response idempotency, startup deadlines, English/Arabic receipts and 5,000-merchant filtering remain tested.
+40 automated tests and TypeScript/Vite production build pass. Existing queue durability, lost-response idempotency, startup deadlines, English/Arabic receipts and 5,000-merchant filtering remain tested.
 
 Live Supabase migration checks: all pre-update transactions and receipts preserved; 1 account, 11 transactions, 9 receipts. New notification tables have RLS and Realtime publication enabled. Security advisor reported no errors; intentional authenticated SECURITY DEFINER RPC warnings were reviewed against explicit permission and user checks. Leaked-password checking is not enabled on the current free Auth plan.
 

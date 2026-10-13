@@ -32,6 +32,7 @@ Amounts are integer halalas. Browser inputs reject excess decimal precision. The
 The finance migration extends the existing ledger with invoices, returns, attributed team activity, cash and savings. Every exposed table has RLS; financial writes go through permission-checked atomic RPCs with empty search paths. Original invoices and generated receipts use private storage with team-scoped access. Historical receipt snapshots remain unchanged. Do not rerun the baseline schema or a migration already applied to the live project.
 
 ## Main workflow
+- Existing records: open Merchants → Import existing records, choose Excel/CSV/readable PDF, review the extracted names/dates/balances and save. Merchant pages and past payment history are created together. Already-existing merchants are skipped to avoid duplicate balances; unusual or scanned PDFs need review or a readable export.
 - Configure the business profile/logo once in More.
 - Add a merchant with opening balance, phone, unique prefix and receipt language.
 - Record payment, or adjust the outstanding balance.

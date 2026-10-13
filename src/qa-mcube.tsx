@@ -6,6 +6,8 @@ import { Cash, Savings } from "./components/Cash";
 import { GoodsForm } from "./components/GoodsForm";
 import { Reports } from "./components/FinanceReports";
 import { Dashboard, Merchants } from "./components/Views";
+import ExistingRecords from "./components/ExistingRecords";
+import type { FinanceEngine } from "./engine";
 import "./style.css";
 if (!import.meta.env.DEV)
   throw Error("Fictional QA is only available in development.");
@@ -82,6 +84,7 @@ function QA() {
             "cash",
             "savings",
             "reports",
+            "import",
           ].map((p) => (
             <button className="secondary" key={p} onClick={() => setPage(p)}>
               {p}
@@ -137,6 +140,8 @@ function QA() {
               }}
             />
           </section>
+        ) : page === "import" ? (
+          <ExistingRecords state={state} engine={{refresh:async()=>{}} as FinanceEngine} onDone={()=>setPage("merchants")} previewOnly />
         ) : page === "reports" ? (
           <Reports state={state} actions={actions} notify={setMessage} />
         ) : page === "merchants" ? (

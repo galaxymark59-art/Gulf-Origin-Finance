@@ -70,8 +70,8 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: |
-            cd android && ./gradlew :app:connectedDebugAndroidTest --no-daemon
-            cd .. && bash scripts/verify-release-startup.sh
+            (cd android && ./gradlew :app:connectedDebugAndroidTest --no-daemon)
+            bash scripts/verify-release-startup.sh
       - name: Collect startup test evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -499,10 +499,12 @@ export function Merchants({
   state,
   onMerchant,
   onAdd,
+  onImport,
 }: {
   state: State;
   onMerchant: (m: Merchant) => void;
   onAdd: () => void;
+  onImport?: () => void;
 }) {
   const t = useText();
   const [search, setSearch] = useState("");
@@ -553,10 +555,17 @@ export function Merchants({
           </p>
         </div>
         {can(state.member, "record_transactions") && (
-          <button className="primary" onClick={onAdd}>
-            <Plus size={17} />
-            {t("Add merchant", "إضافة تاجر")}
-          </button>
+          <div className="toolbar">
+            {state.member?.role === "owner" && onImport && (
+              <button className="secondary" onClick={onImport}>
+                Import existing records
+              </button>
+            )}
+            <button className="primary" onClick={onAdd}>
+              <Plus size={17} />
+              {t("Add merchant", "إضافة تاجر")}
+            </button>
+          </div>
         )}
       </div>
       <div className="toolbar">

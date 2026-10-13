@@ -81,9 +81,96 @@ beforeAll(async () => {
       "utf8",
     ),
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/20261013185654_merchant_history_import.sql",
+      "utf8",
+    ),
+  );
 }, 120000);
 afterAll(async () => {
   await db?.close();
+});
+it("imports a year of merchant history atomically, once, without new-payment alerts", async () => {
+  const id = crypto.randomUUID(),
+    start = "2025-10-14";
+  const group = {
+    id,
+    opening_id: crypto.randomUUID(),
+    name: "Fictional imported merchant",
+    phone: "",
+    opening: 500000,
+    closing: 350000,
+    start_on: start,
+    rows: [
+      {
+        id: crypto.randomUUID(),
+        kind: "payment",
+        amount: 100000,
+        reference: "OLD-001",
+        method: "cash",
+        occurred_at: start + "T12:00:00+03:00",
+      },
+      {
+        id: crypto.randomUUID(),
+        kind: "payment",
+        amount: 50000,
+        reference: "OLD-002",
+        method: "bank",
+        occurred_at: "2026-10-01T12:00:00+03:00",
+      },
+    ],
+  };
+  const request = {
+    id: crypto.randomUUID(),
+    file_hash: "a".repeat(64),
+    filename: "fictional.csv",
+    merchants: [group],
+  };
+  await asUser(collector);
+  await expect(
+    db.query("select public.import_merchant_history($1::jsonb)", [
+      JSON.stringify(request),
+    ]),
+  ).rejects.toThrow("PERMISSION_DENIED");
+  await asUser(owner);
+  const bad = {
+    ...request,
+    id: crypto.randomUUID(),
+    file_hash: "b".repeat(64),
+    merchants: [{ ...group, closing: 1 }],
+  };
+  await expect(
+    db.query("select public.import_merchant_history($1::jsonb)", [
+      JSON.stringify(bad),
+    ]),
+  ).rejects.toThrow("IMPORT_BALANCE_MISMATCH");
+  expect(
+    (await db.query("select * from public.merchants where id=$1", [id])).rows,
+  ).toHaveLength(0);
+  for (let i = 0; i < 2; i++)
+    await db.query("select public.import_merchant_history($1::jsonb)", [
+      JSON.stringify(request),
+    ]);
+  const {
+    rows: [row],
+  } = await db.query<{ balance: number; entries: number; alerts: number }>(
+    "select balance,(select count(*) from public.financial_transactions where merchant_id=$1) entries,(select count(*) from public.notification_events where transaction_id in(select id from public.financial_transactions where merchant_id=$1)) alerts from public.merchants where id=$1",
+    [id],
+  );
+  expect(Number(row.balance)).toBe(350000);
+  expect(Number(row.entries)).toBe(3);
+  expect(Number(row.alerts)).toBe(0);
+  await expect(
+    db.query("select public.import_merchant_history($1::jsonb)", [
+      JSON.stringify({
+        ...request,
+        id: crypto.randomUUID(),
+        file_hash: "c".repeat(64),
+      }),
+    ]),
+  ).rejects.toThrow("IMPORT_MERCHANT_EXISTS");
+  // The remaining database fixtures address their own merchant explicitly.
 });
 
 it("preserves existing balances and receipt snapshots through the migration", async () => {
@@ -92,10 +179,13 @@ it("preserves existing balances and receipt snapshots through the migration", as
     rows: [row],
   } = await db.query<{ s: any }>("select public.get_snapshot() s");
   expect(row.s.merchants[0].balance).toBe(500000);
-  expect(row.s.entries).toHaveLength(2);
-  expect(row.s.receipts[0].snapshot.business.name).toBe(
-    "Gulf Origin International",
-  );
+  expect(
+    row.s.entries.filter((e: any) => e.merchant_id === merchant),
+  ).toHaveLength(2);
+  expect(
+    row.s.receipts.find((r: any) => r.snapshot.merchant.id === merchant)
+      .snapshot.business.name,
+  ).toBe("Gulf Origin International");
   expect(row.s.business.name).toBe("Mcube Exporters");
 });
 it("freezes the current payment and the previous 15 days in the issued receipt", async () => {
@@ -304,7 +394,7 @@ it("deduplicates invoices, separates returns from cash, and retries the same ope
   const {
     rows: [r],
   } = await db.query<{ balance: number; cash: number }>(
-    "select (select balance from public.merchants where id=$1) balance,(select sum(case when method='cash' and kind='payment' then amount when method='cash' and kind='reversal' then -amount else 0 end) from public.financial_transactions) cash",
+    "select (select balance from public.merchants where id=$1) balance,(select sum(case when method='cash' and kind='payment' then amount when method='cash' and kind='reversal' then -amount else 0 end) from public.financial_transactions where merchant_id=$1) cash",
     [merchant],
   );
   expect(Number(r.balance)).toBe(640000);

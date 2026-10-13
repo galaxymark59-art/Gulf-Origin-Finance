@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+  type ReactNode,
+} from "react";
 import type { Session } from "@supabase/supabase-js";
 import { App as CapacitorApp } from "@capacitor/app";
 import {
@@ -58,6 +66,7 @@ import { Users as UserAccounts } from "./components/Users";
 import { exportReport, statementReport } from "./exports";
 import { ChangePassword } from "./components/ChangePassword";
 import { usePaymentAlerts } from "./notifications";
+const ExistingRecords = lazy(() => import("./components/ExistingRecords"));
 export function App() {
   const [session, setSession] = useState<Session | null>();
   const alerts = usePaymentAlerts(session);
@@ -669,7 +678,16 @@ function Workspace({
               state={state}
               onMerchant={openMerchant}
               onAdd={() => setModal("merchant")}
+              onImport={() => setPage("import")}
             />
+          ) : page === "import" ? (
+            <Suspense fallback={<p>Opening file import…</p>}>
+              <ExistingRecords
+                state={state}
+                engine={engine}
+                onDone={() => setPage("merchants")}
+              />
+            </Suspense>
           ) : page === "merchant" && merchant ? (
             <>
               <button
