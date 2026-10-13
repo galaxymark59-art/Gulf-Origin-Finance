@@ -50,7 +50,7 @@ Stable operation IDs survive restart. If a commit succeeds but the response is l
 Export encrypted backups under More → Sync. Recovery loads confirmed records from Supabase and merges missing pending IDs; it does not replace cloud history. Keep the backup password safe. Receipt PDF bytes are held on the originating device and uploaded to private Storage when generated online; receipt snapshots remain in the ledger.
 
 ## Android
-See `docs/ANDROID.md`. The native platform and branded resources are included. GitHub Actions verifies the project and builds an installable debug APK on main pushes. Production signing needs an owner's private signing key; keys and passwords must remain outside source control.
+See `docs/ANDROID.md`. [Download Android 1.0.1 (debug)](https://github.com/galaxymark59-art/Gulf-Origin-Finance/releases/download/v1.0.1/Gulf-Origin-Finance-1.0.1.apk). The native platform and branded resources are included. GitHub Actions verifies the project, tests first launch on an Android emulator and builds an installable debug APK on main pushes. Production signing needs an owner's private signing key; keys and passwords must remain outside source control.
 
 ## Verification and release status
 See `docs/STATUS.md` for evidence and the remaining acceptance work. This is a functional initial implementation with a tested ledger, not a claim that native-device acceptance or production security review has been completed.

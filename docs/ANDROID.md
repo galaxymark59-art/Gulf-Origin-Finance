@@ -14,7 +14,11 @@ The installable debug artifact is `android/app/build/outputs/apk/debug/app-debug
 
 The repository's Android GitHub Actions workflow performs this build and uploads the APK artifact. The Supabase URL and publishable key are public client configuration. It never receives a service-role key or the owner's password.
 
-The verified build of commit `f1630925d58c91da0e91fe5612467b743886296b` is available in [Actions run 38309105531](https://github.com/galaxymark59-art/Gulf-Origin-Finance/actions/runs/38309105531), artifact **Gulf-Origin-Android-debug** (14-day retention). A local copy is `artifacts/android/app-debug.apk`. See STATUS.md for its SHA-256 checksum. This APK compiled successfully; the device checks below remain outstanding.
+Version 1.0.1 is available from the [GitHub release](https://github.com/galaxymark59-art/Gulf-Origin-Finance/releases/tag/v1.0.1), or [Actions run 38349833733](https://github.com/galaxymark59-art/Gulf-Origin-Finance/actions/runs/38349833733), artifact **Gulf-Origin-Android-debug** (14-day Actions retention). Local copies are `artifacts/android/Gulf-Origin-Finance-1.0.1.apk` and `artifacts/android/app-debug.apk`. A SHA-256 sidecar accompanies the named APK. This build passes native first-launch instrumentation on Android 15; the full device checks below remain outstanding.
+
+The startup repair registers the custom SecureVault plugin before `super.onCreate`, as required by [Capacitor's registration guide](https://capacitorjs.com/docs/android/custom-code). Failed or stalled secure storage reads show a Retry screen instead of remaining on the opening screen. PIN storage must be read before the workspace can render.
+
+Debug builds from different CI runners may use different signing certificates. If Android rejects an update due to a signature conflict, preserve any unsynced records before uninstalling the old build. Use a stable owner-controlled release signing key for production updates.
 
 ## Production signing
 In Android Studio: open the android project, Build → Generate Signed App Bundle or APK → APK. Create or select an owner-controlled keystore outside this checkout. Keep the keystore, key alias, passwords and recovery backup private. Increase versionCode/versionName for later releases. Build a release APK and verify its signature with Android SDK `apksigner verify --verbose`.
