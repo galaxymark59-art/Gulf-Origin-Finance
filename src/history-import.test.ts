@@ -5,6 +5,7 @@ import {
   guessMapping,
   planHistory,
   importDate,
+  combineHistorySheets,
 } from "./history-import";
 const options = {
   defaultName: "",
@@ -12,6 +13,27 @@ const options = {
   balanceDate: "2026-10-01",
   monthFirst: false,
 };
+it("joins a merchant balance sheet with a separate year of payment history", () => {
+  const sheets = combineHistorySheets([
+    { name: "Merchants", rows: parseCsv("Merchant name,Balance\nOne,3500") },
+    {
+      name: "Payments",
+      rows: parseCsv(
+        "Merchant name,Date,Payment,Reference\nOne,2025-10-14,1000,A\n,2026-10-01,500,B",
+      ),
+    },
+  ]);
+  expect(sheets).toHaveLength(3);
+  const p = planHistory(
+    sheets[0].rows,
+    guessMapping(sheets[0].rows[0]),
+    emptyState("owner"),
+    options,
+  );
+  expect(p.issues).toEqual([]);
+  expect(p.merchants[0]).toMatchObject({ opening: 500000, closing: 350000 });
+  expect(p.merchants[0].rows).toHaveLength(2);
+});
 it("reads quoted merchant names and keeps one year of dated payments with exact balances", () => {
   const rows = parseCsv(
     'Merchant name,Opening balance,Date,Amount,Reference,Notes\n"Shop, One",5000,14/10/2025,1000,OLD-1,"First\npayment"\n"Shop, One",,01/10/2026,500,OLD-2,Second',

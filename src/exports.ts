@@ -498,6 +498,7 @@ export function paymentReport(receipt: Receipt, state: State): ReportModel {
       entryLabel(e.kind) +
         " · " +
         e.reference +
+        (e.note ? " · " + e.note : "") +
         (e.id === entry.id ? " · This payment" : ""),
       ["opening", "invoice", "adjustment"].includes(e.kind) ||
       (e.kind === "reversal" && ["invoice", "adjustment"].includes(e.method))

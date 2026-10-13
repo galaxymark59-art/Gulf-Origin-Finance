@@ -18,7 +18,7 @@ Updated 14 October 2026, Asia/Calcutta. Version 1.1.0 source; installer release 
 | Windows installer | [Run 38458558410](https://github.com/galaxymark59-art/Gulf-Origin-Finance/actions/runs/38458558410) built the NSIS installer and verified the packaged app reaches sign-in | User's PC installation and tray delivery need acceptance |
 | Android installer | [Run 38460206619](https://github.com/galaxymark59-art/Gulf-Origin-Finance/actions/runs/38460206619) built a signed APK and verified its actual first launch on Android 15, plus native instrumentation | User's phone acceptance remains |
 
-41 automated tests and TypeScript/Vite production build pass. Existing queue durability, lost-response idempotency, startup deadlines, English/Arabic receipts and 5,000-merchant filtering remain tested.
+42 automated tests and TypeScript/Vite production build pass. Existing queue durability, lost-response idempotency, startup deadlines, English/Arabic receipts and 5,000-merchant filtering remain tested. File uploads were checked through the browser with fictional PDF, CSV and Excel data, including separate merchant/payment sheets.
 
 Live Supabase migration checks: all pre-update transactions and receipts preserved; 1 account, 11 transactions, 9 receipts. New notification tables have RLS and Realtime publication enabled. Security advisor reported no errors; intentional authenticated SECURITY DEFINER RPC warnings were reviewed against explicit permission and user checks. Leaked-password checking is not enabled on the current free Auth plan.
 

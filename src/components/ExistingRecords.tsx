@@ -95,12 +95,25 @@ export default function ExistingRecords({
     setBusy(true);
     setMessage("");
     try {
-      const scopedHash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(hash+(/\.xlsx$/i.test(filename)?":"+sheets[sheet].name:"")))),b=>b.toString(16).padStart(2,"0")).join("");
+      const scopedHash = Array.from(
+        new Uint8Array(
+          await crypto.subtle.digest(
+            "SHA-256",
+            new TextEncoder().encode(
+              hash +
+                (/\.xlsx$/i.test(filename) ? ":" + sheets[sheet].name : ""),
+            ),
+          ),
+        ),
+        (b) => b.toString(16).padStart(2, "0"),
+      ).join("");
       const { data, error } = await supabase.rpc("import_merchant_history", {
         p: {
           id: crypto.randomUUID(),
           file_hash: scopedHash,
-          filename: filename + (/\.xlsx$/i.test(filename)?" · "+sheets[sheet].name:""),
+          filename:
+            filename +
+            (/\.xlsx$/i.test(filename) ? " · " + sheets[sheet].name : ""),
           merchants: selected.map(({ existing, ...m }) => m),
         },
       });
@@ -147,6 +160,12 @@ export default function ExistingRecords({
       </div>
       <section className="card">
         <h2>1. Choose your file</h2>
+        <p className="hint">
+          Excel merchant lists and payment sheets are read together when their
+          column names match. A blank name under a merchant in those sheets uses
+          that merchant. Check the preview; file options let you choose one
+          sheet instead.
+        </p>
         <p>
           Excel (.xlsx), CSV and readable PDF tables are supported. Your file is
           read on this device. The reviewed records are saved when you press
@@ -407,8 +426,17 @@ export default function ExistingRecords({
                                           ...s,
                                           rows: s.rows.map((value, j) =>
                                             j === header + r + 1
-                                              ? value.map((v, k) =>
-                                                  k === c ? e.target.value : v,
+                                              ? Array.from(
+                                                  {
+                                                    length: Math.max(
+                                                      value.length,
+                                                      rows[0].length,
+                                                    ),
+                                                  },
+                                                  (_, k) =>
+                                                    k === c
+                                                      ? e.target.value
+                                                      : value[k] || "",
                                                 )
                                               : value,
                                           ),
@@ -478,7 +506,8 @@ export default function ExistingRecords({
                 !confirmed ||
                 plan.issues.length > 0 ||
                 !selected.length ||
-              !navigator.onLine || previewOnly
+                !navigator.onLine ||
+                previewOnly
               }
               onClick={() => void save()}
             >

@@ -102,6 +102,55 @@ export function guessMapping(headers: string[]): Mapping {
     ]),
   ) as Mapping;
 }
+export function combineHistorySheets(sheets: Sheet[]): Sheet[] {
+  const headers = [
+    "Merchant name",
+    "Phone",
+    "Opening balance",
+    "Date",
+    "Type",
+    "Amount",
+    "Reference",
+    "Method",
+    "Notes",
+    "Balance",
+    "Payment",
+    "New Invoice",
+    "Returns",
+  ];
+  const fields = importFields.map(([key]) => key),
+    joined: string[][] = [headers];
+  let included = 0;
+  for (const sheet of sheets) {
+    const start = sheet.rows.slice(0, 20).findIndex((row) => {
+      const m = guessMapping(row);
+      return (
+        m.name >= 0 &&
+        (m.opening >= 0 ||
+          m.balance >= 0 ||
+          (m.date >= 0 &&
+            (m.amount >= 0 ||
+              m.payment >= 0 ||
+              m.invoice >= 0 ||
+              m.return >= 0)))
+      );
+    });
+    if (start < 0) continue;
+    included++;
+    const m = guessMapping(sheet.rows[start]);
+    let previousName = "";
+    for (const row of sheet.rows.slice(start + 1)) {
+      if (!row.some((v) => v.trim())) continue;
+      const values = fields.map((key) => (m[key] < 0 ? "" : row[m[key]] || ""));
+      if (values[0].trim()) previousName = values[0];
+      else if (values[3].trim()) values[0] = previousName;
+      joined.push(values);
+    }
+  }
+  return included > 1
+    ? [{ name: "All merchant records (recommended)", rows: joined }, ...sheets]
+    : sheets;
+}
 export function parseCsv(text: string): string[][] {
   const delimiter =
     (text.split(/\r?\n/)[0].match(/;/g)?.length || 0) >
@@ -148,7 +197,7 @@ export async function readHistoryFile(file: File): Promise<Sheet[]> {
     const ExcelJS = (await import("exceljs")).default,
       wb = new ExcelJS.Workbook();
     await wb.xlsx.load(await file.arrayBuffer());
-    return wb.worksheets
+    const sheets = wb.worksheets
       .map((ws) => {
         const rows: string[][] = [];
         ws.eachRow((row) => {
@@ -166,6 +215,7 @@ export async function readHistoryFile(file: File): Promise<Sheet[]> {
         return { name: ws.name, rows };
       })
       .filter((s) => s.rows.length);
+    return combineHistorySheets(sheets);
   }
   if (/\.pdf$/i.test(file.name)) {
     const { readPdfTable } = await import("./history-pdf");
@@ -251,7 +301,7 @@ export function planHistory(
     issues: string[] = [];
   if (rows.length > 10001)
     issues.push(
-      "Import up to 10,000 transaction rows at a time. Split a larger sheet into separate files.",
+      "Import up to 10,000 transaction rows at a time. Split a larger file by merchant, keeping each merchant's history together.",
     );
   rows.slice(1).forEach((row, index) => {
     if (!row.some((v) => v.trim())) return;
