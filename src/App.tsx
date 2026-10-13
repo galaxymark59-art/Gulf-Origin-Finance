@@ -18,6 +18,7 @@ import { supabase } from "./client";
 import { native } from "./native";
 import { FinanceEngine } from "./engine";
 import { getLock } from "./security";
+import { withStartupTimeout } from "./startup";
 import { LanguageContext, useText } from "./i18n";
 import {
   money,
@@ -45,16 +46,24 @@ export function App() {
   const [session, setSession] = useState<Session | null>();
   const [recovery, setRecovery] = useState(false);
   const [locked, setLocked] = useState<boolean>();
+  const [lockOwner, setLockOwner] = useState<string>();
+  const [startupError, setStartupError] = useState<"session" | "lock">();
   const [setup, setSetup] = useState(false);
   const [language, setLanguage] = useState<Language>(
     (localStorage.getItem("gulf-language") as Language) || "en",
   );
   useEffect(() => {
     let active = true;
-    void supabase.auth.getSession().then(({ data }) => {
-      if (active) setSession(data.session);
-    });
+    void withStartupTimeout(supabase.auth.getSession())
+      .then(({ data, error }) => {
+        if (error) throw error;
+        if (active) setSession(data.session);
+      })
+      .catch(() => {
+        if (active) setStartupError("session");
+      });
     const { data } = supabase.auth.onAuthStateChange((event, s) => {
+      if (!active) return;
       setSession(s);
       if (event === "PASSWORD_RECOVERY") setRecovery(true);
     });
@@ -66,15 +75,21 @@ export function App() {
   useEffect(() => {
     if (!session?.user.id) {
       setLocked(false);
+      setLockOwner(undefined);
       return;
     }
     let active = true;
-    void getLock(session.user.id).then((lock) => {
-      if (active) {
-        setSetup(native && !lock);
-        setLocked(Boolean(lock));
-      }
-    });
+    void withStartupTimeout(getLock(session.user.id))
+      .then((lock) => {
+        if (active) {
+          setSetup(native && !lock);
+          setLocked(Boolean(lock));
+          setLockOwner(session.user.id);
+        }
+      })
+      .catch(() => {
+        if (active) setStartupError("lock");
+      });
     return () => {
       active = false;
     };
@@ -116,7 +131,23 @@ export function App() {
     };
   }, [session?.user.id]);
   let content: ReactNode;
-  if (session === undefined || (session && locked === undefined))
+  if (startupError)
+    content = (
+      <div className="loading" role="alert">
+        <img src="/logo.svg" alt="" width="60" />
+        <h2>Unable to open your workspace</h2>
+        <p>
+          {startupError === "session"
+            ? "Your saved sign-in could not be read. Check your connection and retry."
+            : "Your encrypted device storage could not be opened. Check available device space and retry."}
+        </p>
+        <p>Your saved records have not been cleared.</p>
+        <button className="primary" onClick={() => location.reload()}>
+          Retry opening app
+        </button>
+      </div>
+    );
+  else if (session === undefined || (session && lockOwner !== session.user.id))
     content = (
       <div className="loading">
         <img src="/logo.svg" alt="" width="60" />

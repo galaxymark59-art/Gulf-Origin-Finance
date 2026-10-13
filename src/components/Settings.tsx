@@ -585,7 +585,7 @@ export function Settings({
               </form>
             </>
           )}
-          <footer className="version">Gulf Origin Finance · v1.0.0</footer>
+          <footer className="version">Gulf Origin Finance · v1.0.1</footer>
         </section>
       </div>
     </>
