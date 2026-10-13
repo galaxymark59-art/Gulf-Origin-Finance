@@ -1,6 +1,7 @@
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { native, SecureVault } from "./native";
+import { desktop } from "./desktop";
 import { supabase } from "./client";
 import { readLocal, writeLocal } from "./storage";
 import {
@@ -18,7 +19,11 @@ const base64 = (data: ArrayBuffer) => {
 };
 const bytes = (value: string) =>
   Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
-export function downloadBlob(blob: Blob, name: string) {
+export async function downloadBlob(blob: Blob, name: string) {
+  if (native || desktop) {
+    await saveFile(new File([blob], name, { type: blob.type }));
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -36,6 +41,17 @@ export async function receiptFile(
   if (!saved && navigator.onLine) {
     const { data } = await supabase.storage.from("receipts").download(path);
     if (data) saved = base64(await data.arrayBuffer());
+  }
+  if (
+    !saved &&
+    receipt.snapshot.entry.document &&
+    ["invoice", "return"].includes(receipt.snapshot.entry.kind)
+  ) {
+    const { goodsReport } = await import("./exports");
+    const { buildReportFile } = await import("./report-file");
+    saved = base64(
+      await (await buildReportFile(goodsReport(receipt), "pdf")).arrayBuffer(),
+    );
   }
   if (!saved) {
     if (!font) {
@@ -172,12 +188,9 @@ export async function receiptFile(
     if (e.note) {
       doc.setFontSize(11);
       doc.setR2L(false);
-      doc.text(
-        doc.splitTextToSize(e.note, 165),
-        ar ? 190 : 20,
-        205,
-        { align: ar ? "right" : "left" },
-      );
+      doc.text(doc.splitTextToSize(e.note, 165), ar ? 190 : 20, 205, {
+        align: ar ? "right" : "left",
+      });
       doc.setR2L(false);
     }
     doc.setDrawColor("#dce5ec");
@@ -208,16 +221,62 @@ export async function receiptFile(
   }
   return new File([blob], name, { type: "application/pdf" });
 }
+export async function paymentReceiptFile(
+  receipt: Receipt,
+  state: State,
+): Promise<File> {
+  const key = "pdf:history15:" + receipt.id,
+    path = state.businessOwner + "/history15/" + receipt.id + ".pdf";
+  let saved = await readLocal<string>(key);
+  if (!saved && navigator.onLine) {
+    const { data } = await supabase.storage.from("receipts").download(path);
+    if (data) saved = base64(await data.arrayBuffer());
+  }
+  if (!saved) {
+    const { paymentReport } = await import("./exports");
+    const { buildReportFile } = await import("./report-file");
+    saved = base64(
+      await (
+        await buildReportFile(paymentReport(receipt, state), "pdf")
+      ).arrayBuffer(),
+    );
+    await writeLocal(key, saved);
+  }
+  const file = new File(
+    [bytes(saved)],
+    receipt.reference.replaceAll(" ", "-") + "-with-15-day-history.pdf",
+    { type: "application/pdf" },
+  );
+  if (navigator.onLine)
+    await supabase.storage
+      .from("receipts")
+      .upload(path, file, { contentType: "application/pdf", upsert: false });
+  return file;
+}
 export async function saveFile(file: File) {
+  if (desktop) {
+    if (
+      !(await desktop.saveFile({
+        name: file.name,
+        base64: base64(await file.arrayBuffer()),
+      }))
+    )
+      throw Error("Save cancelled.");
+    return;
+  }
   if (native) {
     await SecureVault.download({
       name: file.name,
       base64: base64(await file.arrayBuffer()),
       mime: file.type,
     });
-  } else downloadBlob(file, file.name);
+  } else await downloadBlob(file, file.name);
 }
 export async function shareFile(file: File) {
+  if (desktop) {
+    await saveFile(file);
+    return false;
+  }
   if (native) {
     const result = await Filesystem.writeFile({
       path: file.name,
@@ -225,18 +284,18 @@ export async function shareFile(file: File) {
       directory: Directory.Cache,
     });
     await Share.share({
-      title: "Gulf Origin · " + file.name,
-      text: "Payment record from Gulf Origin International",
+      title: "Mcube Exporters · " + file.name,
+      text: "Business document from Mcube Exporters",
       files: [result.uri],
       dialogTitle: "Share PDF via WhatsApp",
     });
     return true;
   }
   if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: "Gulf Origin" });
+    await navigator.share({ files: [file], title: "Mcube Exporters" });
     return true;
   }
-  downloadBlob(file, file.name);
+  await downloadBlob(file, file.name);
   return false;
 }
 export async function exportWorkbook(
@@ -362,9 +421,7 @@ export async function exportWorkbook(
   await saveFile(
     new File(
       [new Uint8Array(data)],
-      merchant
-        ? merchant.prefix + "-statement.xlsx"
-        : "Gulf-Origin-collections.xlsx",
+      merchant ? merchant.prefix + "-statement.xlsx" : "Mcube-collections.xlsx",
       {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       },

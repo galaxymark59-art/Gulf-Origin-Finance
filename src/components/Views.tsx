@@ -21,6 +21,8 @@ import {
 } from "../domain";
 import { useText } from "../i18n";
 import { Empty } from "./Common";
+import { can, actor, isOverdue, cashDay, savingsPeriod } from "../finance";
+import { entryLabel } from "../exports";
 export type EntryActions = {
   download: (e: Entry) => void;
   share: (e: Entry) => void;
@@ -83,14 +85,17 @@ export function Ledger({
                         "badge " + (e.kind === "payment" ? "green" : "")
                       }
                     >
-                      {e.kind === "payment"
-                        ? t("Payment", "دفعة")
-                        : e.kind === "adjustment"
-                          ? t("Adjustment", "تعديل")
-                          : e.kind === "reversal"
-                            ? t("Reversal", "عكس")
-                            : t("Opening", "افتتاحي")}
+                      {entryLabel(e.kind)}
                     </span>
+                    <small>
+                      {state.members.find((u) => u.id === actor(e))?.name ||
+                        "Previous owner"}
+                    </small>
+                    {e.document?.lines.map((l) => (
+                      <small key={l.id}>
+                        {l.description} × {l.quantity / 1000}
+                      </small>
+                    ))}
                     {e.pending && (
                       <small className="pending">
                         {t("Pending sync", "بانتظار المزامنة")}
@@ -113,32 +118,41 @@ export function Ledger({
                           >
                             <Download size={17} />
                           </button>
-                          <button
-                            className="icon"
-                            title={t("Share PDF", "مشاركة PDF")}
-                            aria-label={t("Share PDF", "مشاركة PDF")}
-                            onClick={() => actions.share(e)}
-                          >
-                            <Share2 size={17} />
-                          </button>
-                          {r.status !== "confirmed_sent" && (
+                          {can(state.member, "record_transactions") && (
                             <button
                               className="icon"
-                              title={t(
-                                "Mark manually sent",
-                                "تأكيد الإرسال يدوياً",
-                              )}
-                              aria-label={t(
-                                "Mark manually sent",
-                                "تأكيد الإرسال يدوياً",
-                              )}
-                              onClick={() => actions.sent(e)}
+                              title={t("Share PDF", "مشاركة PDF")}
+                              aria-label={t("Share PDF", "مشاركة PDF")}
+                              onClick={() => actions.share(e)}
                             >
-                              <Check size={17} />
+                              <Share2 size={17} />
                             </button>
                           )}
-                          {!reversed &&
-                            ["payment", "adjustment"].includes(e.kind) && (
+                          {can(state.member, "record_transactions") &&
+                            r.status !== "confirmed_sent" && (
+                              <button
+                                className="icon"
+                                title={t(
+                                  "Mark manually sent",
+                                  "تأكيد الإرسال يدوياً",
+                                )}
+                                aria-label={t(
+                                  "Mark manually sent",
+                                  "تأكيد الإرسال يدوياً",
+                                )}
+                                onClick={() => actions.sent(e)}
+                              >
+                                <Check size={17} />
+                              </button>
+                            )}
+                          {can(state.member, "record_transactions") &&
+                            !reversed &&
+                            [
+                              "payment",
+                              "adjustment",
+                              "invoice",
+                              "return",
+                            ].includes(e.kind) && (
                               <button
                                 className="icon"
                                 title={t("Reverse entry", "عكس القيد")}
@@ -260,16 +274,18 @@ export function Dashboard({
             · Riyadh
           </p>
         </div>
-        <div className="actions">
-          <button className="secondary" onClick={onAdd}>
-            <Plus size={17} />
-            {t("Add merchant", "إضافة تاجر")}
-          </button>
-          <button className="primary" onClick={onPayment}>
-            <Plus size={17} />
-            {t("Record payment", "تسجيل دفعة")}
-          </button>
-        </div>
+        {can(state.member, "record_transactions") && (
+          <div className="actions">
+            <button className="secondary" onClick={onAdd}>
+              <Plus size={17} />
+              {t("Add merchant", "إضافة تاجر")}
+            </button>
+            <button className="primary" onClick={onPayment}>
+              <Plus size={17} />
+              {t("Record payment", "تسجيل دفعة")}
+            </button>
+          </div>
+        )}
       </div>
       <div className="stats">
         <article className="stat featured">
@@ -307,12 +323,57 @@ export function Dashboard({
         <article className="stat">
           <div>
             <span>{t("Total merchants", "عدد التجار")}</span>
-            <span className="mini-logo">GO</span>
+            <span className="mini-logo">M</span>
           </div>
           <strong>{state.merchants.length}</strong>
           <small>
             {state.merchants.filter((m) => m.balance <= 0).length}{" "}
             {t("settled or in credit", "مسدد أو دائن")}
+          </small>
+        </article>
+      </div>
+      <div className="stats three">
+        <article className="stat">
+          <span>
+            {can(state.member, "manage_users")
+              ? "Cash in hand · all users"
+              : "My cash in hand"}
+          </span>
+          <strong>
+            {state.cashAccounts.length
+              ? money(
+                  cashDay(
+                    state,
+                    today,
+                    can(state.member, "manage_users") ? null : state.owner,
+                  ).closing,
+                )
+              : "Opening cash needed"}
+          </strong>
+          <small>Open More → Cash to record or count cash.</small>
+        </article>
+        <article className="stat">
+          <span>Savings in locker</span>
+          <strong>
+            {state.savingsAccount
+              ? money(savingsPeriod(state, "1900-01-01", today).closing)
+              : "Opening savings needed"}
+          </strong>
+          <small>Open More → Savings for the full history.</small>
+        </article>
+        <article className="stat">
+          <span>My collections today</span>
+          <strong>
+            {money(
+              collection(
+                state.entries.filter((e) => actor(e) === state.owner),
+                today,
+                today,
+              ),
+            )}
+          </strong>
+          <small>
+            {state.member?.name} · {state.member?.role}
           </small>
         </article>
       </div>
@@ -457,7 +518,11 @@ export function Merchants({
     .filter(
       (m) =>
         filter === "all" ||
-        (filter === "outstanding" ? m.balance > 0 : m.balance <= 0),
+        (filter === "overdue"
+          ? isOverdue(m)
+          : filter === "outstanding"
+            ? m.balance > 0
+            : m.balance <= 0),
     )
     .sort((a, b) =>
       sort === "balance"
@@ -487,10 +552,12 @@ export function Merchants({
             )}
           </p>
         </div>
-        <button className="primary" onClick={onAdd}>
-          <Plus size={17} />
-          {t("Add merchant", "إضافة تاجر")}
-        </button>
+        {can(state.member, "record_transactions") && (
+          <button className="primary" onClick={onAdd}>
+            <Plus size={17} />
+            {t("Add merchant", "إضافة تاجر")}
+          </button>
+        )}
       </div>
       <div className="toolbar">
         <div className="search">
@@ -518,6 +585,7 @@ export function Merchants({
           }}
         >
           <option value="all">{t("All merchants", "كل التجار")}</option>
+          <option value="overdue">Overdue · WhatsApp reminders</option>
           <option value="outstanding">
             {t("Outstanding", "لديهم مستحقات")}
           </option>
@@ -550,7 +618,8 @@ export function Merchants({
               "أضف البيانات مرة واحدة واربط كل الدفعات والإيصالات.",
             )}
             action={
-              !search && (
+              !search &&
+              can(state.member, "record_transactions") && (
                 <button className="primary" onClick={onAdd}>
                   {t("Add merchant", "إضافة تاجر")}
                 </button>
@@ -576,6 +645,11 @@ export function Merchants({
                 </div>
                 <h2>{m.name}</h2>
                 <p>{m.city || m.phone}</p>
+                {isOverdue(m) && (
+                  <span className="badge overdue">
+                    Overdue since {m.due_on} · Open for reminder
+                  </span>
+                )}
                 <small>{t("Current outstanding", "الرصيد الحالي")}</small>
                 <strong>{money(m.balance)}</strong>
                 <footer>

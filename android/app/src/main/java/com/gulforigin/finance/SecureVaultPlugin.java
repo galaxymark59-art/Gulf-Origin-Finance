@@ -28,6 +28,7 @@ import org.json.JSONObject;
 @CapacitorPlugin(name="SecureVault")
 public class SecureVaultPlugin extends Plugin {
  private final Object mutex=new Object();
+ @PluginMethod public void pushReady(PluginCall call){call.resolve(new JSObject().put("ready",getContext().getResources().getIdentifier("google_app_id","string",getContext().getPackageName())!=0));}
  private SharedPreferences preferences(){return getContext().getSharedPreferences("gulf-secure-vault",Context.MODE_PRIVATE);}
  private SecretKey key() throws Exception {
   KeyStore store=KeyStore.getInstance("AndroidKeyStore");store.load(null);
@@ -58,13 +59,13 @@ public class SecureVaultPlugin extends Plugin {
    @Override public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result){call.resolve();}
    @Override public void onAuthenticationError(int code,@NonNull CharSequence message){call.reject("Biometric verification cancelled or unavailable.");}
   });
-  prompt.authenticate(new BiometricPrompt.PromptInfo.Builder().setTitle("Unlock Gulf Origin").setSubtitle("Verify your identity to open your records").setNegativeButtonText("Use app PIN").build());
+  prompt.authenticate(new BiometricPrompt.PromptInfo.Builder().setTitle("Unlock Mcube Exporters").setSubtitle("Verify your identity to open your records").setNegativeButtonText("Use app PIN").build());
  });}
  @PluginMethod public void download(PluginCall call){
   if(Build.VERSION.SDK_INT<29){call.reject("Downloads requires Android 10 or newer.");return;}
   Uri uri=null;
   try{String name=call.getString("name","Gulf-Origin.pdf").replaceAll("[^a-zA-Z0-9._-]","_");
-   ContentValues values=new ContentValues();values.put(MediaStore.Downloads.DISPLAY_NAME,name);values.put(MediaStore.Downloads.MIME_TYPE,call.getString("mime","application/pdf"));values.put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/Gulf Origin");values.put(MediaStore.Downloads.IS_PENDING,1);
+   ContentValues values=new ContentValues();values.put(MediaStore.Downloads.DISPLAY_NAME,name);values.put(MediaStore.Downloads.MIME_TYPE,call.getString("mime","application/pdf"));values.put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/Mcube Exporters");values.put(MediaStore.Downloads.IS_PENDING,1);
    uri=getContext().getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);if(uri==null)throw new Exception();
    try(OutputStream out=getContext().getContentResolver().openOutputStream(uri)){if(out==null)throw new Exception();out.write(Base64.decode(call.getString("base64",""),Base64.DEFAULT));}
    ContentValues ready=new ContentValues();ready.put(MediaStore.Downloads.IS_PENDING,0);getContext().getContentResolver().update(uri,ready,null,null);

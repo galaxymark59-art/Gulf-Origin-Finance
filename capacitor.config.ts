@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "com.gulforigin.finance",
-  appName: "Gulf Origin",
+  appName: "Mcube Exporters",
   webDir: "dist",
   android: { allowMixedContent: false },
   plugins: {
@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
       androidIsEncryption: true,
       androidBiometric: {
         biometricAuth: false,
-        biometricTitle: "Unlock Gulf Origin",
+        biometricTitle: "Unlock Mcube Exporters",
       },
     },
   },

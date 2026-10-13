@@ -6,6 +6,7 @@ import { Field } from "./Common";
 import { getLock, unlockPin, unlockBiometric, setPin } from "../security";
 import { writeLocal } from "../storage";
 import { native } from "../native";
+import { desktop } from "../desktop";
 export function Auth() {
   const [email, setEmail] = useState("Ahmedmarwan8374@gmail.com");
   const [password, setPassword] = useState("");
@@ -31,7 +32,7 @@ export function Auth() {
     <div className="auth">
       <section className="auth-intro">
         <img src="/logo.svg" alt="" width="64" />
-        <p className="eyebrow">GULF ORIGIN INTERNATIONAL</p>
+        <p className="eyebrow">MCUBE EXPORTERS</p>
         <h1>
           Every collection.
           <br />
@@ -47,7 +48,7 @@ export function Auth() {
       </section>
       <section className="auth-panel">
         <img src="/logo.svg" alt="" width="44" />
-        <p className="eyebrow">OWNER WORKSPACE</p>
+        <p className="eyebrow">PRIVATE WORKSPACE</p>
         <h2>Welcome back</h2>
         <p>Sign in once. Your session stays with you.</p>
         {!configured ? (
@@ -86,7 +87,12 @@ export function Auth() {
                 setBusy(true);
                 const { error } = await supabase.auth.resetPasswordForEmail(
                   email,
-                  { redirectTo: native ? 'https://gulf-origin-finance.vercel.app' : location.origin },
+                  {
+                    redirectTo:
+                      native || desktop
+                        ? "https://gulf-origin-finance.vercel.app"
+                        : location.origin,
+                  },
                 );
                 setMessage(
                   error
@@ -106,7 +112,7 @@ export function Auth() {
           </p>
         )}
         <small>
-          <ShieldCheck size={14} /> Single owner access · Encrypted connection
+          <ShieldCheck size={14} /> Owner-managed access · Encrypted connection
         </small>
       </section>
     </div>
@@ -120,7 +126,7 @@ export function LockScreen({
 }: {
   owner: string;
   email: string;
-  onUnlock: () => void;
+  onUnlock: (needsSetup?: boolean) => void;
   setup?: boolean;
 }) {
   const [pin, setValue] = useState("");
@@ -141,7 +147,10 @@ export function LockScreen({
         if (error || data.user?.id !== owner)
           throw Error("Password verification failed.");
         await writeLocal("lock:" + owner, null);
-        onUnlock();
+        setReset(false);
+        setValue("");
+        setConfirm("");
+        onUnlock(native || Boolean(desktop));
       } else if (setup) {
         if (pin !== confirm) throw Error("The PINs do not match.");
         await setPin(owner, pin, native);
@@ -167,7 +176,7 @@ export function LockScreen({
       </p>
       <form onSubmit={submit}>
         {reset ? (
-          <Field label="Verify owner password">
+          <Field label="Verify your password">
             <input
               type="password"
               value={password}
@@ -235,7 +244,7 @@ export function LockScreen({
       )}
       {!setup && (
         <button className="link" onClick={() => setReset(!reset)}>
-          {reset ? "Use PIN" : "Reset PIN with owner password"}
+          {reset ? "Use PIN" : "Reset PIN with your password"}
         </button>
       )}
       {message && (

@@ -5,10 +5,12 @@ export function Modal({
   title,
   children,
   onClose,
+  required = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  required?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const t = useText();
@@ -17,16 +19,25 @@ export function Modal({
     return () => ref.current?.close();
   }, []);
   return (
-    <dialog ref={ref} onCancel={onClose} aria-label={title}>
+    <dialog
+      ref={ref}
+      onCancel={(e) => {
+        if (required) e.preventDefault();
+        else onClose();
+      }}
+      aria-label={title}
+    >
       <div className="modal-heading">
         <h2>{title}</h2>
-        <button
-          className="icon"
-          onClick={onClose}
-          aria-label={t("Close", "إغلاق")}
-        >
-          <X size={20} />
-        </button>
+        {!required && (
+          <button
+            className="icon"
+            onClick={onClose}
+            aria-label={t("Close", "إغلاق")}
+          >
+            <X size={20} />
+          </button>
+        )}
       </div>
       {children}
     </dialog>
@@ -57,7 +68,7 @@ export function Empty({
 }) {
   return (
     <div className="empty">
-      <div className="empty-mark">GO</div>
+      <div className="empty-mark">M</div>
       <h3>{title}</h3>
       <p>{detail}</p>
       {action}

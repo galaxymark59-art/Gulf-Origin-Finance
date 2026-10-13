@@ -34,6 +34,7 @@ export function MerchantForm({
         city: String(f.get("city") || ""),
         address: String(f.get("address") || ""),
         notes: String(f.get("notes") || ""),
+        due_on: String(f.get("due_on") || ""),
         prefix: String(f.get("prefix")).trim().toUpperCase(),
         language: String(f.get("language")),
         opening:
@@ -117,6 +118,13 @@ export function MerchantForm({
           </Field>
         )}
       </div>
+      <Field label="Payment due date (optional)">
+        <input name="due_on" type="date" defaultValue={merchant?.due_on} />
+        <small>
+          Set the agreed payment date. Overdue reminders appear after this date
+          while money is still due.
+        </small>
+      </Field>
       <Field label={t("Address", "العنوان")}>
         <input name="address" defaultValue={merchant?.address} />
       </Field>

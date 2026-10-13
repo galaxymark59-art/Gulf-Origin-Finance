@@ -1,6 +1,8 @@
 name: Verify and build Android APK
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 permissions:
@@ -32,8 +34,29 @@ jobs:
           VITE_SUPABASE_URL: https://zyrsakqocyjvfgauwdiz.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_bVxHkS1PiXaiDcxDb16C8A_NU54FpXz
       - run: npx cap sync android
+      - name: Restore Android notification configuration
+        env:
+          FIREBASE_CONFIG: ${{ secrets.MCUBE_GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$FIREBASE_CONFIG" ]; then
+            printf '%s' "$FIREBASE_CONFIG" > android/app/google-services.json
+          fi
+      - name: Restore private APK signer
+        env:
+          KEY_BASE64: ${{ secrets.MCUBE_SIGNING_KEY }}
+        run: |
+          test -n "$KEY_BASE64"
+          printf '%s' "$KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/mcube-upload.p12"
+          chmod 600 "$RUNNER_TEMP/mcube-upload.p12"
       - run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
         working-directory: android
+      - name: Build signed private release
+        working-directory: android
+        env:
+          MCUBE_SIGNING_PATH: ${{ runner.temp }}/mcube-upload.p12
+          MCUBE_SIGNING_PASSWORD: ${{ secrets.MCUBE_SIGNING_PASSWORD }}
+          MCUBE_SIGNING_ALIAS: ${{ secrets.MCUBE_SIGNING_ALIAS }}
+        run: ./gradlew :app:assembleRelease --no-daemon
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -46,7 +69,9 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: cd android && ./gradlew :app:connectedDebugAndroidTest --no-daemon
+          script: |
+            cd android && ./gradlew :app:connectedDebugAndroidTest --no-daemon
+            cd .. && bash scripts/verify-release-startup.sh
       - name: Collect startup test evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -55,8 +80,9 @@ jobs:
           path: |
             android/app/build/reports/androidTests/connected/
             android/app/build/outputs/androidTest-results/connected/
+            artifacts/android/release-startup/
       - uses: actions/upload-artifact@v4
         with:
-          name: Gulf-Origin-Android-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: Mcube-Exporters-Android
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 14

@@ -1,5 +1,5 @@
-# Gulf Origin Finance
-Private owner collection management for Gulf Origin International, Saudi Arabia. React 19 + TypeScript + Capacitor 8, Supabase PostgreSQL/Auth/Storage, Vercel.
+# Mcube Exporters
+Private finance and collection management for Mcube Exporters, Saudi Arabia. React 19 + TypeScript + Capacitor 8, Supabase PostgreSQL/Auth/Storage, Vercel and Electron for Windows. This updates the existing Gulf Origin app while preserving its Android application ID and saved records.
 
 ## Start
 1. Install Node 22.12+.
@@ -15,7 +15,7 @@ The authorized owner is Ahmedmarwan8374@gmail.com. The initial account was creat
 
 `persistSession: true` and `autoRefreshToken: true` keep the account signed in across reloads and app restarts. Native tokens are stored through Android Keystore encryption. PIN / fingerprint lock preserves the underlying session. Sign-out, revoked sessions, password changes, cleared app data or an administrator's session policy can still require sign-in.
 
-There is no merchant sign-in or public sign-up interface. Database access is independently restricted to the sole UUID in `owner_profiles`, not an editable JWT metadata field. Public signup is disabled in the configured Supabase project. Its Auth site URL points to the live app for password recovery.
+There is no merchant sign-in or public sign-up interface. Owners manage owner, collector and viewer accounts through More → Users. Database access checks active membership and permissions stored in protected `user_accounts`, independently of editable JWT metadata. Public signup remains disabled. Android and Windows require a local PIN, retain sign-in, allow a 30-second background grace period and lock after two minutes of inactivity.
 
 ## Database
 The schema lives in `database/schema.sql` and the CLI-created versioned migration in `supabase/migrations/`. This schema was applied to the requested project and its rollback-only ledger acceptance test passed. **Do not rerun the initial schema against an already-provisioned database.** Future changes need additive migrations.
@@ -29,7 +29,7 @@ For a fresh project:
 
 Amounts are integer halalas. Browser inputs reject excess decimal precision. The database serializes each merchant's updates with row locks, assigns independent receipt numbers and atomically saves entries, receipts, audit records and operation receipts. Direct client INSERT/UPDATE/DELETE privileges on ledger tables are absent. Receipts, ledger rows, shares and audit rows reject updates and deletes. Corrections create reversal entries.
 
-The public RPC wrapper invokes a private privileged function with an explicit owner check and empty search path. `get_snapshot` uses caller privileges and RLS. Every exposed table has RLS. The receipt bucket is private with owner-scoped insert/read policies and no client overwrite/delete policies.
+The finance migration extends the existing ledger with invoices, returns, attributed team activity, cash and savings. Every exposed table has RLS; financial writes go through permission-checked atomic RPCs with empty search paths. Original invoices and generated receipts use private storage with team-scoped access. Historical receipt snapshots remain unchanged. Do not rerun the baseline schema or a migration already applied to the live project.
 
 ## Main workflow
 - Configure the business profile/logo once in More.
@@ -49,8 +49,11 @@ Stable operation IDs survive restart. If a commit succeeds but the response is l
 
 Export encrypted backups under More → Sync. Recovery loads confirmed records from Supabase and merges missing pending IDs; it does not replace cloud history. Keep the backup password safe. Receipt PDF bytes are held on the originating device and uploaded to private Storage when generated online; receipt snapshots remain in the ledger.
 
-## Android
-See `docs/ANDROID.md`. [Download Android 1.0.1 (debug)](https://github.com/galaxymark59-art/Gulf-Origin-Finance/releases/download/v1.0.1/Gulf-Origin-Finance-1.0.1.apk). The native platform and branded resources are included. GitHub Actions verifies the project, tests first launch on an Android emulator and builds an installable debug APK on main pushes. Production signing needs an owner's private signing key; keys and passwords must remain outside source control.
+## Android and Windows
+See `docs/ANDROID.md` and `docs/STATUS.md` for release evidence. Android builds use a persistent private signer stored in GitHub Actions secrets. The Windows workflow creates an NSIS `.exe` installer and checks that the packaged app reaches sign-in. Windows data uses DPAPI encryption; closing its window leaves it in the tray, while Quit stops background alerts. No Windows APK exists.
+
+## Owner payment alerts
+Payments atomically create a generic in-app alert for Ahmed Marwan. Android uses Firebase Cloud Messaging; the private sender credential belongs only in the Supabase Edge secret `FCM_SERVICE_ACCOUNT_JSON`. The public Android SDK configuration belongs in the GitHub secret `MCUBE_GOOGLE_SERVICES_JSON`. Neither the sender key nor a Supabase service-role key belongs in client bundles. `database/configure-notifications.sql` enables protected asynchronous delivery and retries after sender configuration. Firebase must remain on Spark with no billing account linked; this design does not use paid Cloud Functions or Google Cloud Scheduler. Device permission, internet connectivity and Android background restrictions affect delivery. Windows must be running in the tray to receive alerts.
 
 ## Verification and release status
 See `docs/STATUS.md` for evidence and the remaining acceptance work. This is a functional initial implementation with a tested ledger, not a claim that native-device acceptance or production security review has been completed.

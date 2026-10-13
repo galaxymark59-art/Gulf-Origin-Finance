@@ -20,8 +20,21 @@ vi.mock("./client", () => ({
 }));
 import { FinanceEngine } from "./engine";
 import { emptyState, type Operation } from "./domain";
+const fixture = () => ({
+  ...emptyState("owner"),
+  member: {
+    id: "owner",
+    owner_id: "owner",
+    name: "Owner",
+    email: "owner@example.test",
+    role: "owner" as const,
+    active: true,
+    permissions: {},
+  },
+});
 beforeEach(() => {
   mocks.disk.clear();
+  mocks.disk.set("state:owner", fixture());
   mocks.rpc.mockReset();
   mocks.owner.mockResolvedValue({ data: { id: "owner" }, error: null });
   vi.stubGlobal("navigator", { onLine: false });
@@ -60,7 +73,7 @@ it("retains the original operation ID when the server commits but its response s
   mocks.rpc
     .mockResolvedValueOnce({ data: {}, error: null })
     .mockResolvedValueOnce({
-      data: { ...emptyState("owner"), business: { name: "Gulf Origin" } },
+      data: { ...fixture(), business: { name: "Gulf Origin" } },
       error: null,
     });
   await engine.sync();

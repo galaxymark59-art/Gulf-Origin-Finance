@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { App as CapacitorApp } from "@capacitor/app";
 import {
@@ -13,11 +13,14 @@ import {
   ArrowLeft,
   Download,
   ShieldCheck,
+  Bell,
 } from "lucide-react";
 import { supabase } from "./client";
 import { native } from "./native";
+import { desktop } from "./desktop";
 import { FinanceEngine } from "./engine";
 import { getLock } from "./security";
+import { shouldLockOnReturn, shouldLockForInactivity } from "./lock-policy";
 import { withStartupTimeout } from "./startup";
 import { LanguageContext, useText } from "./i18n";
 import {
@@ -39,16 +42,33 @@ import {
   Ledger,
   type EntryActions,
 } from "./components/Views";
-import { Reports } from "./components/Reports";
+import { Reports } from "./components/FinanceReports";
 import { Settings } from "./components/Settings";
-import { receiptFile, shareFile, saveFile, exportWorkbook } from "./documents";
+import {
+  receiptFile,
+  paymentReceiptFile,
+  shareFile,
+  saveFile,
+} from "./documents";
+import { can, isOverdue, reminderUrl, reminderText } from "./finance";
+import { Goods } from "./components/Goods";
+import { GoodsForm } from "./components/GoodsForm";
+import { Cash, Savings } from "./components/Cash";
+import { Users as UserAccounts } from "./components/Users";
+import { exportReport, statementReport } from "./exports";
+import { ChangePassword } from "./components/ChangePassword";
+import { usePaymentAlerts } from "./notifications";
 export function App() {
   const [session, setSession] = useState<Session | null>();
+  const alerts = usePaymentAlerts(session);
   const [recovery, setRecovery] = useState(false);
   const [locked, setLocked] = useState<boolean>();
   const [lockOwner, setLockOwner] = useState<string>();
   const [startupError, setStartupError] = useState<"session" | "lock">();
   const [setup, setSetup] = useState(false);
+  const [hasPin, setHasPin] = useState(false);
+  const [privateCover, setPrivateCover] = useState(false);
+  const backgroundAt = useRef<number | null>(null);
   const [language, setLanguage] = useState<Language>(
     (localStorage.getItem("gulf-language") as Language) || "en",
   );
@@ -82,8 +102,9 @@ export function App() {
     void withStartupTimeout(getLock(session.user.id))
       .then((lock) => {
         if (active) {
-          setSetup(native && !lock);
+          setSetup((native || Boolean(desktop)) && !lock);
           setLocked(Boolean(lock));
+          setHasPin(Boolean(lock));
           setLockOwner(session.user.id);
         }
       })
@@ -101,35 +122,44 @@ export function App() {
   }, [language]);
   useEffect(() => {
     if (!session) return;
+    if (desktop) void supabase.auth.startAutoRefresh();
     let last = Date.now();
     const activity = () => {
       last = Date.now();
     };
     const timer = setInterval(() => {
-      if (Date.now() - last > 300000)
-        void getLock(session.user.id).then((l) => {
-          if (l) setLocked(true);
-        });
+      if (shouldLockForInactivity(hasPin, last, Date.now())) setLocked(true);
     }, 15000);
     window.addEventListener("pointerdown", activity);
     window.addEventListener("keydown", activity);
+    const activeChange = (isActive: boolean) => {
+      if (!isActive) {
+        backgroundAt.current = Date.now();
+        setPrivateCover(true);
+        if (native) supabase.auth.stopAutoRefresh();
+      } else {
+        if (shouldLockOnReturn(hasPin, backgroundAt.current, Date.now()))
+          setLocked(true);
+        backgroundAt.current = null;
+        last = Date.now();
+        setPrivateCover(false);
+        if (native) supabase.auth.startAutoRefresh();
+      }
+    };
     const handle = native
-      ? CapacitorApp.addListener("appStateChange", ({ isActive }) => {
-          if (!isActive) {
-            void getLock(session.user.id).then((l) => {
-              if (l) setLocked(true);
-            });
-            supabase.auth.stopAutoRefresh();
-          } else supabase.auth.startAutoRefresh();
-        })
+      ? CapacitorApp.addListener("appStateChange", ({ isActive }) =>
+          activeChange(isActive),
+        )
       : undefined;
+    const desktopOff = desktop?.onActiveChange(activeChange);
     return () => {
       clearInterval(timer);
       window.removeEventListener("pointerdown", activity);
       window.removeEventListener("keydown", activity);
       void handle?.then((h) => h.remove());
+      desktopOff?.();
     };
-  }, [session?.user.id]);
+  }, [session?.user.id, hasPin]);
   let content: ReactNode;
   if (startupError)
     content = (
@@ -161,9 +191,10 @@ export function App() {
         owner={session.user.id}
         email={session.user.email || ""}
         setup={setup}
-        onUnlock={() => {
+        onUnlock={(needsSetup = false) => {
           setLocked(false);
-          setSetup(false);
+          setSetup(needsSetup);
+          setHasPin(!needsSetup);
         }}
       />
     );
@@ -174,6 +205,7 @@ export function App() {
         session={session}
         language={language}
         setLanguage={setLanguage}
+        alerts={alerts}
         onLock={() =>
           void getLock(session.user.id).then((l) => {
             if (l) setLocked(true);
@@ -184,7 +216,18 @@ export function App() {
     );
   return (
     <LanguageContext value={language}>
-      {content}
+      <div hidden={privateCover}>{content}</div>
+      {alerts.toast && (
+        <div className="toast" role="status">
+          {alerts.toast}
+        </div>
+      )}
+      {privateCover && (
+        <div className="privacy-cover">
+          <img src="/logo.svg" alt="" width="60" />
+          <p>Mcube Exporters · Private workspace</p>
+        </div>
+      )}
       {recovery && session && (
         <PasswordRecovery onDone={() => setRecovery(false)} />
       )}
@@ -238,11 +281,13 @@ function Workspace({
   language,
   setLanguage,
   onLock,
+  alerts,
 }: {
   session: Session;
   language: Language;
   setLanguage: (l: Language) => void;
   onLock: () => void;
+  alerts: ReturnType<typeof usePaymentAlerts>;
 }) {
   const t = useText();
   const engine = useMemo(
@@ -254,11 +299,21 @@ function Workspace({
   const [page, setPage] = useState("dashboard");
   const [selected, setSelected] = useState<string>();
   const [modal, setModal] = useState<
-    "merchant" | "edit" | "payment" | "adjustment" | "reversal"
+    | "merchant"
+    | "edit"
+    | "payment"
+    | "adjustment"
+    | "reversal"
+    | "invoice"
+    | "return"
+    | "statement"
+    | "reminder"
   >();
   const [reversal, setReversal] = useState<Entry>();
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reportUser, setReportUser] = useState("");
+  const [settingsTab, setSettingsTab] = useState("business");
   useEffect(() => {
     const unsubscribe = engine.subscribe(() => render((n) => n + 1));
     let alive = true;
@@ -340,7 +395,10 @@ function Workspace({
         );
         return;
       }
-      const file = await receiptFile(r, state.owner);
+      const file =
+        e.kind === "payment"
+          ? await paymentReceiptFile(r, state)
+          : await receiptFile(r, state.businessOwner);
       if (action === "download") {
         await saveFile(file);
         notify(t("PDF saved.", "تم حفظ PDF."));
@@ -362,7 +420,7 @@ function Workspace({
         } else
           notify(
             t(
-              "PDF downloaded. File sharing is unavailable in this browser.",
+              "PDF saved. Attach it in WhatsApp to share.",
               "تم تنزيل PDF. مشاركة الملفات غير متاحة في هذا المتصفح.",
             ),
           );
@@ -398,7 +456,7 @@ function Workspace({
     { id: "merchants", label: t("Merchants", "التجار"), icon: Users },
     { id: "collections", label: t("Collections", "التحصيل"), icon: Wallet },
     { id: "reports", label: t("Reports", "التقارير"), icon: BarChart3 },
-    { id: "settings", label: t("More", "المزيد"), icon: SettingsIcon },
+    { id: "more", label: t("More", "المزيد"), icon: SettingsIcon },
   ];
   const openMerchant = (m: Merchant) => {
     setSelected(m.id);
@@ -410,6 +468,39 @@ function Workspace({
   };
   const synced =
     state.queue.length === 0 && Boolean(state.lastSync) && !engine.error;
+  const writable = can(state.member, "record_transactions");
+  async function saveEntry(op: Operation, share: boolean) {
+    await engine.enqueue(op);
+    setModal(undefined);
+    notify("Saved on this device. Syncing to the cloud.");
+    if (share) {
+      await engine.sync();
+      await engine.whenIdle();
+      const entry = engine.view().entries.find((e) => e.id === op.id);
+      if (entry && !entry.pending) await receiptAction(entry, "share");
+      else notify("Saved offline. Share the final PDF after syncing.");
+    }
+  }
+  if (engine.accessDenied)
+    return (
+      <div className="loading" role="alert">
+        <img src="/logo.svg" alt="" width="60" />
+        <h2>Account access is unavailable</h2>
+        <p>
+          Ask an owner to check your account and permissions. Your pending
+          records are still saved securely.
+        </p>
+        <button className="primary" onClick={() => void engine.sync()}>
+          Check access again
+        </button>
+        <button
+          className="secondary"
+          onClick={() => void supabase.auth.signOut()}
+        >
+          Sign out
+        </button>
+      </div>
+    );
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -423,12 +514,13 @@ function Workspace({
         >
           <img src="/logo.svg" alt="" width="42" />
           <span>
-            Gulf Origin<small>FINANCE WORKSPACE</small>
+            Mcube Exporters<small>FINANCE WORKSPACE</small>
           </span>
         </a>
         <div className="workspace-tag">
           <span className="workspace-dot" />
-          {t("Private owner workspace", "مساحة عمل خاصة للمالك")}
+          {state.member?.name || "Private workspace"} ·{" "}
+          {state.member?.role || "Checking access"}
         </div>
         <nav aria-label={t("Main navigation", "التنقل الرئيسي")}>
           {navigation.map((item) => (
@@ -436,7 +528,16 @@ function Workspace({
               key={item.id}
               className={
                 page === item.id ||
-                (page === "merchant" && item.id === "merchants")
+                (page === "merchant" && item.id === "merchants") ||
+                ([
+                  "settings",
+                  "invoices",
+                  "returns",
+                  "cash",
+                  "savings",
+                  "users",
+                ].includes(page) &&
+                  item.id === "more")
                   ? "active"
                   : ""
               }
@@ -467,16 +568,35 @@ function Workspace({
           <p>
             {t("Simple records. Lasting clarity.", "قيود بسيطة ووضوح دائم.")}
           </p>
-          <small>Gulf Origin International</small>
+          <small>Mcube Exporters</small>
         </div>
       </aside>
       <main>
         <header className="topbar">
           <div className="breadcrumb">
-            Gulf Origin <span>/</span>{" "}
-            {navigation.find((n) => n.id === page)?.label || merchant?.name}
+            Mcube Exporters <span>/</span>{" "}
+            {navigation.find((n) => n.id === page)?.label ||
+              merchant?.name ||
+              page}
           </div>
           <div className="topbar-actions">
+            {state.member?.id === state.businessOwner &&
+              state.member?.role === "owner" && (
+                <button
+                  className="icon"
+                  aria-label="Owner payment alerts"
+                  title="Owner payment alerts"
+                  onClick={() => {
+                    setSettingsTab("notifications");
+                    setPage("settings");
+                  }}
+                >
+                  <Bell size={19} />
+                  {alerts.events.filter((e) => !e.seen_at).length > 0 && (
+                    <b>{alerts.events.filter((e) => !e.seen_at).length}</b>
+                  )}
+                </button>
+              )}
             <button
               className={
                 "sync-indicator " +
@@ -506,10 +626,12 @@ function Workspace({
             </button>
             <button
               className="owner-avatar"
-              aria-label={t("Owner settings", "إعدادات المالك")}
+              aria-label={t("My settings", "إعداداتي")}
               onClick={() => setPage("settings")}
             >
-              AM
+              {(state.member?.name || session.user.email || "ME")
+                .slice(0, 2)
+                .toUpperCase()}
             </button>
           </div>
         </header>
@@ -571,9 +693,14 @@ function Workspace({
                       .join(" · ")}
                   </p>
                 </div>
-                <button className="secondary" onClick={() => setModal("edit")}>
-                  {t("Edit merchant", "تعديل التاجر")}
-                </button>
+                {writable && (
+                  <button
+                    className="secondary"
+                    onClick={() => setModal("edit")}
+                  >
+                    {t("Edit merchant", "تعديل التاجر")}
+                  </button>
+                )}
               </div>
               <div className="stats three">
                 <article className="stat featured">
@@ -600,42 +727,61 @@ function Workspace({
                 </article>
               </div>
               <div className="workspace-actions">
-                <button className="primary" onClick={() => setModal("payment")}>
-                  <Plus size={18} />
-                  {t("Record payment", "تسجيل دفعة")}
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => setModal("adjustment")}
-                >
-                  {t("Adjust balance", "تعديل الرصيد")}
-                </button>
-                <button
-                  className="secondary"
-                  onClick={async () => {
-                    try {
-                      await exportWorkbook(
-                        state,
-                        state.entries.filter(
-                          (e) => e.merchant_id === merchant.id,
-                        ),
-                        merchant,
-                      );
-                      notify(t("Statement saved.", "تم حفظ الكشف."));
-                    } catch {
-                      notify(
-                        t(
-                          "Statement export failed. Please retry.",
-                          "فشل تصدير الكشف. أعد المحاولة.",
-                        ),
-                      );
-                    }
-                  }}
-                >
-                  <Download size={17} />
-                  {t("Download statement", "تنزيل كشف الحساب")}
-                </button>
+                {writable && (
+                  <>
+                    <button
+                      className="primary"
+                      onClick={() => setModal("payment")}
+                    >
+                      <Plus size={18} />
+                      {t("Record payment", "تسجيل دفعة")}
+                    </button>
+                    <button
+                      className="secondary"
+                      onClick={() => setModal("adjustment")}
+                    >
+                      {t("Adjust balance", "تعديل الرصيد")}
+                    </button>
+                    <button
+                      className="secondary"
+                      onClick={() => setModal("invoice")}
+                    >
+                      New invoice
+                    </button>
+                    <button
+                      className="secondary"
+                      onClick={() => setModal("return")}
+                    >
+                      Record return
+                    </button>
+                  </>
+                )}
+                {can(state.member, "export_reports") && (
+                  <button
+                    className="secondary"
+                    onClick={() => setModal("statement")}
+                  >
+                    <Download size={17} />
+                    {t("Download statement", "تنزيل كشف الحساب")}
+                  </button>
+                )}
+                {isOverdue(merchant) && writable && (
+                  <button
+                    className="secondary"
+                    onClick={() => setModal("reminder")}
+                  >
+                    WhatsApp reminder
+                  </button>
+                )}
               </div>
+              <p className="hint">
+                Review the history before recording a payment. Use New invoice
+                for goods supplied, Record return for goods returned, and Adjust
+                balance only for corrections.{" "}
+                {merchant.due_on
+                  ? "Payment due: " + merchant.due_on
+                  : "Set a payment due date in Edit merchant to enable overdue reminders."}
+              </p>
               {merchant.notes && (
                 <p className="merchant-notes">{merchant.notes}</p>
               )}
@@ -668,10 +814,12 @@ function Workspace({
                     )}
                   </p>
                 </div>
-                <button className="primary" onClick={openPayment}>
-                  <Plus size={18} />
-                  {t("Record payment", "تسجيل دفعة")}
-                </button>
+                {writable && (
+                  <button className="primary" onClick={openPayment}>
+                    <Plus size={18} />
+                    {t("Record payment", "تسجيل دفعة")}
+                  </button>
+                )}
               </div>
               <section className="card">
                 <Ledger
@@ -682,17 +830,124 @@ function Workspace({
               </section>
             </>
           ) : page === "reports" ? (
-            <Reports state={state} actions={actions} notify={notify} />
+            <Reports
+              key={reportUser}
+              state={state}
+              actions={actions}
+              notify={notify}
+              initialUser={reportUser}
+            />
+          ) : page === "invoices" || page === "returns" ? (
+            <Goods
+              key={page}
+              state={state}
+              kind={page === "invoices" ? "invoice" : "return"}
+              onAdd={() => setModal(page === "invoices" ? "invoice" : "return")}
+              onMerchant={openMerchant}
+              actions={actions}
+              notify={notify}
+            />
+          ) : page === "cash" ? (
+            <Cash
+              state={state}
+              onSave={(op) => engine.enqueue(op)}
+              notify={notify}
+            />
+          ) : page === "savings" ? (
+            <Savings
+              state={state}
+              onSave={(op) => engine.enqueue(op)}
+              notify={notify}
+            />
+          ) : page === "users" ? (
+            <UserAccounts
+              state={state}
+              notify={notify}
+              onRefresh={() => engine.sync()}
+              onHistory={(id) => {
+                setReportUser(id);
+                setPage("reports");
+              }}
+            />
+          ) : page === "more" ? (
+            <>
+              <div className="page-heading">
+                <div>
+                  <h1>More</h1>
+                  <p>
+                    Choose a section below. Each section has a short guide to
+                    help you get started.
+                  </p>
+                </div>
+              </div>
+              <div className="more-grid">
+                {[
+                  [
+                    "invoices",
+                    "Invoices",
+                    "Record goods supplied or review an uploaded PDF.",
+                  ],
+                  [
+                    "returns",
+                    "Returns",
+                    "Record goods returned to reduce the amount due.",
+                  ],
+                  [
+                    "cash",
+                    "Cash and daily check",
+                    "Record expenses and purchases, then compare counted cash.",
+                  ],
+                  [
+                    "savings",
+                    "Savings",
+                    "Track money in the locker and where withdrawals go.",
+                  ],
+                  ...(can(state.member, "manage_users")
+                    ? [
+                        [
+                          "users",
+                          "Users",
+                          "Manage accounts, permissions and each person's work.",
+                        ],
+                      ]
+                    : []),
+                  [
+                    "settings",
+                    "Settings",
+                    "Business details, your app lock, sync and backups.",
+                  ],
+                ].map(([id, title, detail]) => (
+                  <button
+                    className="card more-link"
+                    key={id}
+                    onClick={() => setPage(id)}
+                  >
+                    <strong>{title}</strong>
+                    <span>{detail}</span>
+                  </button>
+                ))}
+              </div>
+            </>
           ) : (
             <Settings
               state={state}
               engine={engine}
               onLock={onLock}
               notify={notify}
+              initialTab={settingsTab}
+              alerts={alerts}
             />
           )}
         </div>
       </main>
+      {state.member?.must_change_password && (
+        <Modal title="Choose your own password" required onClose={() => {}}>
+          <p>
+            An owner gave you a temporary password. Change it before continuing.
+          </p>
+          <ChangePassword onDone={() => void engine.sync()} />
+        </Modal>
+      )}
       {toast && (
         <div className="toast" role="status">
           {toast}
@@ -708,17 +963,54 @@ function Workspace({
           title={
             modal === "merchant"
               ? t("Add merchant", "إضافة تاجر")
-              : modal === "edit"
-                ? t("Edit merchant", "تعديل التاجر")
-                : modal === "payment"
-                  ? t("Record payment", "تسجيل دفعة")
-                  : modal === "adjustment"
-                    ? t("Adjust balance", "تعديل الرصيد")
-                    : t("Reverse transaction", "عكس المعاملة")
+              : modal === "invoice"
+                ? "New invoice"
+                : modal === "return"
+                  ? "Record return"
+                  : modal === "statement"
+                    ? "Merchant statement"
+                    : modal === "reminder"
+                      ? "WhatsApp payment reminder"
+                      : modal === "edit"
+                        ? t("Edit merchant", "تعديل التاجر")
+                        : modal === "payment"
+                          ? t("Record payment", "تسجيل دفعة")
+                          : modal === "adjustment"
+                            ? t("Adjust balance", "تعديل الرصيد")
+                            : t("Reverse transaction", "عكس المعاملة")
           }
           onClose={() => setModal(undefined)}
         >
-          {modal === "merchant" || modal === "edit" ? (
+          {modal === "statement" && merchant ? (
+            <Statement state={state} merchant={merchant} notify={notify} />
+          ) : modal === "reminder" && merchant ? (
+            <>
+              <p>
+                Check the message before opening WhatsApp. You choose when to
+                send it.
+              </p>
+              <textarea
+                readOnly
+                rows={6}
+                value={reminderText(merchant, state.business.name)}
+              />
+              <a
+                className="primary full"
+                href={reminderUrl(merchant, state.business.name)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open WhatsApp reminder
+              </a>
+            </>
+          ) : modal === "invoice" || modal === "return" ? (
+            <GoodsForm
+              state={state}
+              selected={merchant}
+              kind={modal}
+              onSave={saveEntry}
+            />
+          ) : modal === "merchant" || modal === "edit" ? (
             <MerchantForm
               merchant={modal === "edit" ? merchant : undefined}
               onSave={async (op) => {
@@ -821,5 +1113,75 @@ function Workspace({
         </Modal>
       )}
     </div>
+  );
+}
+function Statement({
+  state,
+  merchant,
+  notify,
+}: {
+  state: import("./domain").State;
+  merchant: Merchant;
+  notify: (s: string) => void;
+}) {
+  const today = day(new Date().toISOString()),
+    [from, setFrom] = useState(
+      day(new Date(Date.now() - 9 * 86400000).toISOString()),
+    ),
+    [to, setTo] = useState(today),
+    [busy, setBusy] = useState(false);
+  async function download(format: "pdf" | "xlsx") {
+    setBusy(true);
+    try {
+      await exportReport(statementReport(state, merchant, from, to), format);
+      notify("Merchant statement saved.");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Export failed. Please retry.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <p>
+        Starts with the latest 10 days. Choose earlier dates for a longer
+        history. Each payment, invoice, return and correction has its own row.
+      </p>
+      <div className="form-grid">
+        <Field label="From">
+          <input
+            type="date"
+            value={from}
+            max={to}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+        </Field>
+        <Field label="To">
+          <input
+            type="date"
+            value={to}
+            min={from}
+            max={today}
+            onChange={(e) => setTo(e.target.value)}
+          />
+        </Field>
+      </div>
+      <div className="actions">
+        <button
+          className="primary"
+          disabled={busy}
+          onClick={() => void download("pdf")}
+        >
+          Export PDF
+        </button>
+        <button
+          className="secondary"
+          disabled={busy}
+          onClick={() => void download("xlsx")}
+        >
+          Export Excel
+        </button>
+      </div>
+    </>
   );
 }

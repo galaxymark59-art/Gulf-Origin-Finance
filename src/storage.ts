@@ -1,5 +1,6 @@
 import { openDB } from "idb";
 import { native } from "./native";
+import { desktop } from "./desktop";
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 let sql: SQLiteDBConnection | undefined;
 let opening: Promise<SQLiteDBConnection> | undefined;
@@ -40,6 +41,10 @@ async function openNative() {
   return sql;
 }
 export async function readLocal<T>(key: string): Promise<T | null> {
+  if (desktop) {
+    const value = await desktop.get("local:" + key);
+    return value === null ? null : JSON.parse(value);
+  }
   if (native) {
     const db = await nativeDB();
     const r = await db.query("SELECT value FROM records WHERE key=?", [key]);
@@ -58,6 +63,10 @@ export async function readLocal<T>(key: string): Promise<T | null> {
   return JSON.parse(new TextDecoder().decode(plain));
 }
 export async function writeLocal(key: string, value: unknown) {
+  if (desktop) {
+    await desktop.set("local:" + key, JSON.stringify(value));
+    return;
+  }
   if (native) {
     const db = await nativeDB();
     await db.run(
