@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
-import { parseServiceAccount, deliver } from "../_shared/fcm.ts";
+import { parseServiceAccount, deliver, accessToken } from "../_shared/fcm.ts";
 const origins = new Set([
   "https://gulf-origin-finance.vercel.app",
   "https://localhost",
@@ -29,7 +29,9 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
   const authorization = req.headers.get("Authorization") || "",
-    scheduled = authorization === "Bearer " + secret;
+    dispatchSecret = Deno.env.get("PAYMENT_DISPATCH_SECRET"),
+    scheduled =
+      Boolean(dispatchSecret) && authorization === "Bearer " + dispatchSecret;
   const raw = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON");
   let account;
   try {
@@ -79,6 +81,10 @@ Deno.serve(async (req) => {
         },
         { status: 503, headers },
       );
+    if (scheduled && body.action === "validate") {
+      await accessToken(account);
+      return Response.json({ ok: true, sender_verified: true }, { headers });
+    }
     const deadline = Date.now() + 100000;
     while (Date.now() < deadline) {
       const { data: events, error } = await admin.rpc(

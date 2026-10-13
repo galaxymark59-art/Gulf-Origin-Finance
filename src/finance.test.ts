@@ -274,7 +274,7 @@ it("shares this payment and the previous 15 days while excluding later and older
     owner_id: "a",
     reference: payment.reference,
     snapshot: {
-      business: s.business,
+      business: {...s.business,name:"Previous business name"},
       merchant: s.merchants[0],
       entry: payment,
     },
@@ -282,6 +282,7 @@ it("shares this payment and the previous 15 days while excluding later and older
   } as any;
   const model = paymentReport(receipt, s),
     rows = model.sections[1].rows;
+  expect(model.business.name).toBe("Mcube Exporters");
   expect(rows.some((r) => String(r[1]).includes("QA PRIOR"))).toBe(true);
   expect(rows.some((r) => String(r[1]).includes("This payment"))).toBe(true);
   expect(

@@ -84,3 +84,16 @@ it("uses the latest dated balance in reverse-ordered files and rejects unclear d
     ).issues.join(),
   ).toContain("unclear comma");
 });
+it("asks for review of identical unnumbered payments instead of adding them silently", () => {
+  const rows = parseCsv(
+    "Merchant,Opening,Date,Payment\nOne,5000,2025-10-14,1000\nOne,,2025-10-14,1000",
+  );
+  expect(
+    planHistory(
+      rows,
+      guessMapping(rows[0]),
+      emptyState("owner"),
+      options,
+    ).issues.join(),
+  ).toContain("Check for a duplicate");
+});

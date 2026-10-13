@@ -440,7 +440,8 @@ export function statementReport(
   return m;
 }
 export function paymentReport(receipt: Receipt, state: State): ReportModel {
-  const { entry, merchant, business, history } = receipt.snapshot,
+  const { entry, merchant, history } = receipt.snapshot,
+    business = state.business,
     to = day(entry.occurred_at),
     from = day(
       new Date(

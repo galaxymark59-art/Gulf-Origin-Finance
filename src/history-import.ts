@@ -397,7 +397,8 @@ export function planHistory(
       issues.push(
         `${g.name}: opening amount and transactions do not match the last balance in the file.`,
       );
-    const refs = new Set<string>();
+    const refs = new Set<string>(),
+      unnumbered = new Set<string>();
     for (const row of g.rows) {
       const key = row.kind + ":" + row.reference;
       if (refs.has(key))
@@ -405,6 +406,20 @@ export function planHistory(
           `${g.name}: reference ${row.reference} repeats. Check for duplicate transactions.`,
         );
       refs.add(key);
+      if (row.reference.startsWith("FILE-ROW-")) {
+        const details = [
+          row.occurred_at,
+          row.kind,
+          row.amount,
+          row.method,
+          row.note,
+        ].join("|");
+        if (unnumbered.has(details))
+          issues.push(
+            `${g.name}: two unnumbered rows have the same date and amount. Check for a duplicate, or add the original receipt numbers if both are real.`,
+          );
+        unnumbered.add(details);
+      }
     }
     merchants.push({
       id: crypto.randomUUID(),
