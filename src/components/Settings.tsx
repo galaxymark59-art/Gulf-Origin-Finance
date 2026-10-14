@@ -86,7 +86,7 @@ export function Settings({
       <div className="page-heading">
         <div>
           <p className="eyebrow">{t("MAKE IT YOURS", "اضبط مساحة عملك")}</p>
-          <h1>{t("Settings", "مساحة عمل يمكنك الوثوق بها.")}</h1>
+          <h1>{t("Settings", "الإعدادات")}</h1>
           <p>
             {t(
               "Update business details, protect the app and back up your records.",

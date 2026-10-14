@@ -283,7 +283,7 @@ export function Dashboard({
           <p className="eyebrow">
             {t("YOUR BUSINESS, AT A GLANCE", "نظرة على أعمالك")}
           </p>
-          <h1>{t("Dashboard", "رؤية واضحة لتحصيلاتك.")}</h1>
+          <h1>{t("Dashboard", "لوحة التحكم")}</h1>
           <p>
             {new Intl.DateTimeFormat("en-GB", {
               timeZone: "Asia/Riyadh",
