@@ -1,5 +1,5 @@
 # Mcube update status
-Updated 14 October 2026, Asia/Calcutta. Version 1.1.0 source; installer release checks are still in progress.
+Updated 14 October 2026, Asia/Calcutta. Version 1.1.0 Android and Windows installer checks passed for application commit `60c70cbb3155c5cd5752872f0bc2a03ff269e63f`. Production publication is recorded in the GitHub release.
 
 | Change and location | Verification | Remaining limit |
 |---|---|---|
@@ -15,8 +15,8 @@ Updated 14 October 2026, Asia/Calcutta. Version 1.1.0 source; installer release 
 | Responsive exports | New report generation runs in a worker; browser PDF download succeeds | No claim of millisecond performance on every device or network |
 | Owner payment alerts | Live migration, sender, encrypted credentials and retry scheduler configured; real Google HTTP v1 validation succeeds without sending; queue and permissions tests pass | Actual closed-app phone delivery needs device permission and acceptance |
 | Merchants → Import existing records | CSV, Excel and readable PDF extraction, review, automatic merchant creation and dated history; atomic/idempotent database and balance tests pass | Scanned PDFs need readable export/manual correction; overlapping existing merchants are skipped for review; 10,000 transaction rows per import |
-| Windows installer | [Run 38458558410](https://github.com/galaxymark59-art/Gulf-Origin-Finance/actions/runs/38458558410) built the NSIS installer and verified the packaged app reaches sign-in | User's PC installation and tray delivery need acceptance |
-| Android installer | [Run 38460206619](https://github.com/galaxymark59-art/Gulf-Origin-Finance/actions/runs/38460206619) built a signed APK and verified its actual first launch on Android 15, plus native instrumentation | User's phone acceptance remains |
+| Windows installer | [Run 38465674260](https://github.com/galaxymark59-art/Gulf-Origin-Finance/actions/runs/38465674260) built the final NSIS installer and verified the packaged app reaches sign-in | User's PC installation and tray delivery need acceptance |
+| Android installer | [Run 38465674027](https://github.com/galaxymark59-art/Gulf-Origin-Finance/actions/runs/38465674027) built the final signed APK and verified its actual first launch on Android 15, plus native instrumentation | User's phone acceptance remains |
 
 42 automated tests and TypeScript/Vite production build pass. Existing queue durability, lost-response idempotency, startup deadlines, English/Arabic receipts and 5,000-merchant filtering remain tested. File uploads were checked through the browser with fictional PDF, CSV and Excel data, including separate merchant/payment sheets.
 
