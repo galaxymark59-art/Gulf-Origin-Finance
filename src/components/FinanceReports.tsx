@@ -1,3 +1,4 @@
+import { personLabel, personName } from "../presentation";
 import { useState } from "react";
 import { day, money, collection, type State } from "../domain";
 import { can, actor } from "../finance";
@@ -131,7 +132,7 @@ export function Reports({
                 .filter((u) => manager || u.id === state.owner)
                 .map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} · {u.role}
+                    {personLabel(state, u)}
                   </option>
                 ))}
             </select>
@@ -195,7 +196,7 @@ export function Reports({
         </div>
       </section>
       {["cash", "savings"].includes(kind) ? (
-        <section className="card">
+        <section className="card panel">
           <p>
             {kind === "cash"
               ? "The export includes a separate A–G cash report for each selected date. Set opening cash in More → Cash before relying on the total."
@@ -238,8 +239,8 @@ export function Reports({
               </strong>
             </article>
           </div>
-          <section className="card">
-            <h2>Merchant transactions</h2>
+          <section className="card panel">
+            <h2>Merchant history</h2>
             <Ledger
               key={from + to + user + merchant + kind}
               state={state}
@@ -247,7 +248,7 @@ export function Reports({
               actions={actions}
             />
           </section>
-          <section className="card">
+          <section className="card panel">
             <h2>Cash, expenses and savings</h2>
             <div className="table-scroll">
               <table>
@@ -279,12 +280,7 @@ export function Reports({
                         </td>
                         <td>
                           {cashLabel(e.kind)} · {e.note}
-                          <small>
-                            {
-                              state.members.find((u) => u.id === e.created_by)
-                                ?.name
-                            }
-                          </small>
+                          <small>{personName(state, e.created_by)}</small>
                         </td>
                         <td>{money(e.cash_delta)}</td>
                         <td>{money(e.savings_delta)}</td>

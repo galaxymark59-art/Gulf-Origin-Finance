@@ -1,3 +1,4 @@
+import appMark from "./assets/mcube-logo.svg";
 import {
   useEffect,
   useMemo,
@@ -62,6 +63,8 @@ import { can, isOverdue, reminderUrl, reminderText } from "./finance";
 import { Goods } from "./components/Goods";
 import { GoodsForm } from "./components/GoodsForm";
 import { Cash, Savings } from "./components/Cash";
+import { More } from "./components/More";
+import { personLabel, personName, initials } from "./presentation";
 import { Users as UserAccounts } from "./components/Users";
 import { exportReport, statementReport } from "./exports";
 import { ChangePassword } from "./components/ChangePassword";
@@ -173,7 +176,7 @@ export function App() {
   if (startupError)
     content = (
       <div className="loading" role="alert">
-        <img src="/logo.svg" alt="" width="60" />
+        <img src={appMark} alt="" width="60" />
         <h2>Unable to open your workspace</h2>
         <p>
           {startupError === "session"
@@ -189,7 +192,7 @@ export function App() {
   else if (session === undefined || (session && lockOwner !== session.user.id))
     content = (
       <div className="loading">
-        <img src="/logo.svg" alt="" width="60" />
+        <img src={appMark} alt="" width="60" />
         <p>Opening your workspace…</p>
       </div>
     );
@@ -233,7 +236,7 @@ export function App() {
       )}
       {privateCover && (
         <div className="privacy-cover">
-          <img src="/logo.svg" alt="" width="60" />
+          <img src={appMark} alt="" width="60" />
           <p>Mcube Exporters · Private workspace</p>
         </div>
       )}
@@ -493,7 +496,7 @@ function Workspace({
   if (engine.accessDenied)
     return (
       <div className="loading" role="alert">
-        <img src="/logo.svg" alt="" width="60" />
+        <img src={appMark} alt="" width="60" />
         <h2>Account access is unavailable</h2>
         <p>
           Ask an owner to check your account and permissions. Your pending
@@ -521,15 +524,14 @@ function Workspace({
             setPage("dashboard");
           }}
         >
-          <img src="/logo.svg" alt="" width="42" />
+          <img src={appMark} alt="" width="42" />
           <span>
             Mcube Exporters<small>FINANCE WORKSPACE</small>
           </span>
         </a>
         <div className="workspace-tag">
           <span className="workspace-dot" />
-          {state.member?.name || "Private workspace"} ·{" "}
-          {state.member?.role || "Checking access"}
+          {personLabel(state)}
         </div>
         <nav aria-label={t("Main navigation", "التنقل الرئيسي")}>
           {navigation.map((item) => (
@@ -586,15 +588,27 @@ function Workspace({
             Mcube Exporters <span>/</span>{" "}
             {navigation.find((n) => n.id === page)?.label ||
               merchant?.name ||
-              page}
+              (
+                {
+                  settings: "Settings",
+                  invoices: "Goods supplied",
+                  returns: "Goods returned",
+                  cash: "Cash & expenses",
+                  savings: "Savings",
+                  users: "People & access",
+                  import: "Import records",
+                } as Record<string, string>
+              )[page] ||
+              "Workspace"}
+            <small className="mobile-account-name">{personLabel(state)}</small>
           </div>
           <div className="topbar-actions">
             {state.member?.id === state.businessOwner &&
               state.member?.role === "owner" && (
                 <button
                   className="icon"
-                  aria-label="Owner payment alerts"
-                  title="Owner payment alerts"
+                  aria-label="Collection alerts"
+                  title="Collection alerts"
                   onClick={() => {
                     setSettingsTab("notifications");
                     setPage("settings");
@@ -634,13 +648,18 @@ function Workspace({
               <Globe size={19} />
             </button>
             <button
-              className="owner-avatar"
-              aria-label={t("My settings", "إعداداتي")}
-              onClick={() => setPage("settings")}
+              className="account-menu"
+              aria-label={personLabel(state) + ". Open my settings"}
+              title={personLabel(state)}
+              onClick={() => {
+                setSettingsTab("business");
+                setPage("settings");
+              }}
             >
-              {(state.member?.name || session.user.email || "ME")
-                .slice(0, 2)
-                .toUpperCase()}
+              <span className="owner-avatar">
+                {initials(personName(state))}
+              </span>
+              <span className="account-name">{personLabel(state)}</span>
             </button>
           </div>
         </header>
@@ -752,25 +771,25 @@ function Workspace({
                       onClick={() => setModal("payment")}
                     >
                       <Plus size={18} />
-                      {t("Record payment", "تسجيل دفعة")}
+                      {t("Add collection", "تسجيل دفعة")}
                     </button>
                     <button
                       className="secondary"
                       onClick={() => setModal("adjustment")}
                     >
-                      {t("Adjust balance", "تعديل الرصيد")}
+                      {t("Correct amount owed", "تعديل الرصيد")}
                     </button>
                     <button
                       className="secondary"
                       onClick={() => setModal("invoice")}
                     >
-                      New invoice
+                      Add goods supplied
                     </button>
                     <button
                       className="secondary"
                       onClick={() => setModal("return")}
                     >
-                      Record return
+                      Add goods returned
                     </button>
                   </>
                 )}
@@ -793,9 +812,9 @@ function Workspace({
                 )}
               </div>
               <p className="hint">
-                Review the history before recording a payment. Use New invoice
-                for goods supplied, Record return for goods returned, and Adjust
-                balance only for corrections.{" "}
+                Add collection means money received from this merchant. For
+                goods sold or returned, use the goods buttons. Correct amount
+                owed fixes a mistake in the amount due; it does not record cash.{" "}
                 {merchant.due_on
                   ? "Payment due: " + merchant.due_on
                   : "Set a payment due date in Edit merchant to enable overdue reminders."}
@@ -805,7 +824,7 @@ function Workspace({
               )}
               <section className="card">
                 <div className="section-heading">
-                  <h2>{t("Complete merchant ledger", "سجل التاجر الكامل")}</h2>
+                  <h2>{t("Merchant history", "سجل التاجر الكامل")}</h2>
                 </div>
                 <Ledger
                   key={merchant.id}
@@ -824,10 +843,10 @@ function Workspace({
                   <p className="eyebrow">
                     {t("EVERY MOVEMENT, ACCOUNTED FOR", "كل حركة مسجلة")}
                   </p>
-                  <h1>{t("Your collection ledger.", "سجل التحصيل.")}</h1>
+                  <h1>{t("Collections & merchant history", "سجل التحصيل.")}</h1>
                   <p>
                     {t(
-                      "A complete, permanent history of payments and adjustments.",
+                      "See money received from merchants and changes to what they owe. Add expenses in More → Cash & expenses.",
                       "سجل دائم وكامل للدفعات والتعديلات.",
                     )}
                   </p>
@@ -835,7 +854,7 @@ function Workspace({
                 {writable && (
                   <button className="primary" onClick={openPayment}>
                     <Plus size={18} />
-                    {t("Record payment", "تسجيل دفعة")}
+                    {t("Add collection", "تسجيل دفعة")}
                   </button>
                 )}
               </div>
@@ -888,64 +907,7 @@ function Workspace({
               }}
             />
           ) : page === "more" ? (
-            <>
-              <div className="page-heading">
-                <div>
-                  <h1>More</h1>
-                  <p>
-                    Choose a section below. Each section has a short guide to
-                    help you get started.
-                  </p>
-                </div>
-              </div>
-              <div className="more-grid">
-                {[
-                  [
-                    "invoices",
-                    "Invoices",
-                    "Record goods supplied or review an uploaded PDF.",
-                  ],
-                  [
-                    "returns",
-                    "Returns",
-                    "Record goods returned to reduce the amount due.",
-                  ],
-                  [
-                    "cash",
-                    "Cash and daily check",
-                    "Record expenses and purchases, then compare counted cash.",
-                  ],
-                  [
-                    "savings",
-                    "Savings",
-                    "Track money in the locker and where withdrawals go.",
-                  ],
-                  ...(can(state.member, "manage_users")
-                    ? [
-                        [
-                          "users",
-                          "Users",
-                          "Manage accounts, permissions and each person's work.",
-                        ],
-                      ]
-                    : []),
-                  [
-                    "settings",
-                    "Settings",
-                    "Business details, your app lock, sync and backups.",
-                  ],
-                ].map(([id, title, detail]) => (
-                  <button
-                    className="card more-link"
-                    key={id}
-                    onClick={() => setPage(id)}
-                  >
-                    <strong>{title}</strong>
-                    <span>{detail}</span>
-                  </button>
-                ))}
-              </div>
-            </>
+            <More state={state} onOpen={setPage} />
           ) : (
             <Settings
               state={state}
@@ -982,9 +944,9 @@ function Workspace({
             modal === "merchant"
               ? t("Add merchant", "إضافة تاجر")
               : modal === "invoice"
-                ? "New invoice"
+                ? "Add goods supplied"
                 : modal === "return"
-                  ? "Record return"
+                  ? "Add goods returned"
                   : modal === "statement"
                     ? "Merchant statement"
                     : modal === "reminder"
@@ -992,10 +954,10 @@ function Workspace({
                       : modal === "edit"
                         ? t("Edit merchant", "تعديل التاجر")
                         : modal === "payment"
-                          ? t("Record payment", "تسجيل دفعة")
+                          ? t("Add collection", "تسجيل دفعة")
                           : modal === "adjustment"
-                            ? t("Adjust balance", "تعديل الرصيد")
-                            : t("Reverse transaction", "عكس المعاملة")
+                            ? t("Correct amount owed", "تعديل الرصيد")
+                            : t("Undo entry", "عكس المعاملة")
           }
           onClose={() => setModal(undefined)}
         >
@@ -1046,7 +1008,7 @@ function Workspace({
             <>
               <p>
                 {t(
-                  "This adds a permanent reversal. The original transaction stays in the ledger.",
+                  "This cancels the effect of this entry. Both the original entry and the undo stay in the history so you can see what happened.",
                   "يضيف هذا قيداً عكسياً دائماً مع الاحتفاظ بالمعاملة الأصلية.",
                 )}
               </p>
@@ -1092,7 +1054,7 @@ function Workspace({
                   }
                 }}
               >
-                {t("Confirm reversal", "تأكيد العكس")}
+                {t("Confirm undo", "تأكيد العكس")}
               </button>
             </>
           ) : (

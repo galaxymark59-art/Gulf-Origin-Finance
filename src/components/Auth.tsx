@@ -1,3 +1,4 @@
+import appMark from "../assets/mcube-logo.svg";
 import { useState, type FormEvent } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { supabase, configured } from "../client";
@@ -31,7 +32,7 @@ export function Auth() {
   return (
     <div className="auth">
       <section className="auth-intro">
-        <img src="/logo.svg" alt="" width="64" />
+        <img src={appMark} alt="" width="64" />
         <p className="eyebrow">MCUBE EXPORTERS</p>
         <h1>
           Every collection.
@@ -47,7 +48,7 @@ export function Auth() {
         </div>
       </section>
       <section className="auth-panel">
-        <img src="/logo.svg" alt="" width="44" />
+        <img src={appMark} alt="" width="44" />
         <p className="eyebrow">PRIVATE WORKSPACE</p>
         <h2>Welcome back</h2>
         <p>Sign in once. Your session stays with you.</p>
@@ -167,7 +168,7 @@ export function LockScreen({
   }
   return (
     <div className="lock">
-      <img src="/logo.svg" alt="" width="64" />
+      <img src={appMark} alt="" width="64" />
       <h1>{setup ? "Set your app PIN" : "Your workspace is locked"}</h1>
       <p>
         {setup

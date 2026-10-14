@@ -1,3 +1,4 @@
+import { personName } from "../presentation";
 import { useState, type FormEvent } from "react";
 import {
   day,
@@ -155,7 +156,7 @@ export function CashForm({
               )
               .map((a) => (
                 <option key={a.id} value={a.id}>
-                  {state.members.find((u) => u.id === a.id)?.name}
+                  {personName(state, a.id)}
                 </option>
               ))}
           </select>
@@ -186,7 +187,11 @@ export function CashForm({
         </p>
       )}
       <button className="primary full" disabled={busy}>
-        {busy ? "Saving…" : original ? "Save correction" : "Save entry"}
+        {busy
+          ? "Saving…"
+          : original
+            ? "Save correction"
+            : "Save " + cashLabel(kind).toLowerCase()}
       </button>
     </form>
   );
@@ -252,8 +257,7 @@ function CashHistory({
                 <td>
                   {m.reference}
                   <small>
-                    {state.members.find((u) => u.id === m.created_by)?.name ||
-                      "Owner"}
+                    {personName(state, m.created_by)}
                     {m.pending ? " · Pending sync" : ""}
                   </small>
                 </td>
@@ -391,10 +395,11 @@ export function Cash({
       <div className="page-heading">
         <div>
           <p className="eyebrow">CASH IN HAND</p>
-          <h1>Cash and daily check</h1>
+          <h1>Cash & expenses</h1>
           <p>
-            Record cash expenses and purchases here. At the end of the day,
-            count the cash and compare it with the app.
+            Enter money you spend on expenses or purchases here. Merchant
+            payments go in Add collection. At day end, count your cash and
+            compare it with the app.
           </p>
         </div>
         {can(state.member, "manage_cash") && (
@@ -405,9 +410,9 @@ export function Cash({
               if (e.target.value) setKind(e.target.value as CashKind);
             }}
           >
-            <option value="">Add cash entry…</option>
-            <option value="expense">Expense</option>
-            <option value="purchase">Purchase</option>
+            <option value="">Choose what happened…</option>
+            <option value="expense">I paid an expense</option>
+            <option value="purchase">I bought goods</option>
             <option value="other_in">Other cash received</option>
             <option value="other_out">Other cash paid</option>
             <option value="transfer_out">Hand cash to a colleague</option>
@@ -418,7 +423,7 @@ export function Cash({
         {[
           ["check", "End-of-day check"],
           ["history", "Cash history"],
-          ["opening", "Opening cash"],
+          ["opening", "Starting cash"],
         ].map(([id, label]) => (
           <button
             className={tab === id ? "primary" : "secondary"}
@@ -448,7 +453,7 @@ export function Cash({
                 <option value="">All users together</option>
                 {writers.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name}
+                    {personName(state, u.id)}
                   </option>
                 ))}
               </select>
@@ -536,7 +541,7 @@ export function Cash({
               entries and count again.
             </p>
           )}
-          <section className="card">
+          <section className="card panel">
             <h2>Count the cash</h2>
             <p className="hint">
               Enter the banknotes and coins physically held for this date and
@@ -618,11 +623,8 @@ export function Cash({
                           <td>
                             {x.reference}
                             <small>
-                              {
-                                state.members.find((u) => u.id === x.created_by)
-                                  ?.name
-                              }{" "}
-                              · {dateTime(x.created_at)}
+                              {personName(state, x.created_by)} ·{" "}
+                              {dateTime(x.created_at)}
                             </small>
                           </td>
                           <td>{money(x.counted)}</td>
@@ -655,8 +657,8 @@ export function Cash({
         </section>
       )}
       {tab === "opening" && (
-        <section className="card">
-          <h2>Set opening cash once</h2>
+        <section className="card panel">
+          <h2>Cash you had when you started</h2>
           <p className="hint">
             Enter cash already held at the start of the selected day, before
             that day's collections. Do not use merchant balances. Later changes
@@ -680,7 +682,7 @@ export function Cash({
                         )
                         .map((u) => (
                           <option key={u.id} value={u.id}>
-                            {u.name}
+                            {personName(state, u.id)}
                           </option>
                         ))}
                     </select>
@@ -694,12 +696,12 @@ export function Cash({
                       defaultValue={today}
                     />
                   </Field>
-                  <Field label="Cash at start · SAR">
+                  <Field label="Cash already held · SAR">
                     <input name="amount" required inputMode="decimal" />
                   </Field>
                 </div>
                 <button className="primary" disabled={busy}>
-                  Save opening cash
+                  Save starting cash
                 </button>
               </form>
             )}
@@ -715,10 +717,7 @@ export function Cash({
               <tbody>
                 {state.cashAccounts.map((a) => (
                   <tr key={a.id}>
-                    <td>
-                      {state.members.find((u) => u.id === a.id)?.name ||
-                        "Owner"}
-                    </td>
+                    <td>{personName(state, a.id)}</td>
                     <td>{a.start_on}</td>
                     <td>{money(a.opening_cash)}</td>
                   </tr>
@@ -783,8 +782,8 @@ export function Savings({
           <p className="eyebrow">MONEY IN THE LOCKER</p>
           <h1>Savings</h1>
           <p>
-            Use Money saved when cash goes into the locker. Use Take from
-            savings when money leaves it, and choose where it went.
+            See the money kept in your savings locker. Choose Add to savings
+            when you put cash in, or Take from savings when you take it out.
           </p>
         </div>
         {can(state.member, "manage_cash") && state.savingsAccount && (
@@ -793,7 +792,7 @@ export function Savings({
               className="primary"
               onClick={() => setKind("savings_deposit")}
             >
-              Money saved
+              Add to savings
             </button>
             <button
               className="secondary"
@@ -805,11 +804,11 @@ export function Savings({
         )}
       </div>
       {!state.savingsAccount ? (
-        <section className="card">
-          <h2>Enter savings already in the locker</h2>
+        <section className="card panel">
+          <h2>How much is already in the locker?</h2>
           <p className="hint">
-            An owner enters this opening amount once. This does not take money
-            out of cash in hand.
+            Enter the money already saved before you start using this section.
+            This is a starting total, not a new transfer from your cash.
           </p>
           {can(state.member, "manage_users") && (
             <form
@@ -850,12 +849,12 @@ export function Savings({
                     required
                   />
                 </Field>
-                <Field label="Savings at start · SAR">
+                <Field label="Money already in the locker · SAR">
                   <input required inputMode="decimal" name="amount" />
                 </Field>
               </div>
               <button className="primary" disabled={busy}>
-                Save opening savings
+                Save starting savings
               </button>
             </form>
           )}
@@ -923,7 +922,7 @@ export function Savings({
               {money(s.closing)}
             </span>
           </div>
-          <section className="card">
+          <section className="card panel">
             <h2>Savings history</h2>
             <CashHistory
               state={state}

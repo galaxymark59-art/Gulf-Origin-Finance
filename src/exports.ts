@@ -1,3 +1,4 @@
+import { personName, personLabel } from "./presentation";
 import {
   type Business,
   type State,
@@ -35,11 +36,11 @@ export type ReportModel = {
 export const entryLabel = (kind: string) =>
   ({
     opening: "Opening amount due",
-    payment: "Payment received",
+    payment: "Collection received",
     invoice: "Goods added",
     return: "Goods returned",
-    adjustment: "Balance corrected",
-    reversal: "Entry reversed",
+    adjustment: "Amount owed corrected",
+    reversal: "Entry undone",
   })[kind] || kind;
 export const cashLabel = (kind: string) =>
   ({
@@ -51,7 +52,7 @@ export const cashLabel = (kind: string) =>
     savings_withdrawal: "Taken from savings",
     transfer_out: "Cash handed over",
     transfer_in: "Cash received from colleague",
-    reversal: "Entry reversed",
+    reversal: "Entry undone",
   })[kind] || kind;
 function base(
   state: State,
@@ -64,7 +65,7 @@ function base(
     title,
     reference: "REPORT-" + date + "-" + crypto.randomUUID().slice(0, 8),
     date,
-    preparedBy: state.member?.name || "",
+    preparedBy: personLabel(state),
     generatedAt: new Date().toISOString(),
     sections: [],
     filename,
@@ -78,8 +79,7 @@ export function cashReport(
   const c = cashDay(state, date, scope),
     s = savingsPeriod(state, date, date);
   const m = base(state, "DAILY CASH REPORT", date, "Mcube-daily-cash-" + date);
-  const name = (id: string) =>
-    state.members.find((u) => u.id === id)?.name || "Previous owner";
+  const name = (id: string) => personName(state, id);
   const scopeName = scope ? name(scope) : "All users";
   m.sections.push({
     title: "A. Opening Cash",
@@ -250,8 +250,7 @@ export function savingsReport(
           dateTime(e.occurred_at),
           e.reference,
           e.note + " · " + e.destination,
-          state.members.find((u) => u.id === e.created_by)?.name ||
-            "Previous owner",
+          personName(state, e.created_by),
           Math.max(0, e.savings_delta),
           Math.max(0, -e.savings_delta),
           balance,
@@ -337,7 +336,7 @@ export function transactionReport(
               .join(", ")
           : ""),
       e.reference,
-      state.members.find((u) => u.id === actor(e))?.name || "Owner",
+      personName(state, actor(e)),
       e.kind === "payment"
         ? e.amount
         : e.kind === "reversal" &&
@@ -372,7 +371,7 @@ export function transactionReport(
       dateTime(e.occurred_at),
       cashLabel(e.kind) + " · " + e.note,
       e.reference,
-      state.members.find((u) => u.id === e.created_by)?.name || "Owner",
+      personName(state, e.created_by),
       e.cash_delta,
       e.savings_delta,
       e.expense,
@@ -469,9 +468,9 @@ export function paymentReport(receipt: Receipt, state: State): ReportModel {
     receipt.reference.replaceAll(" ", "-") + "-with-15-day-history";
   model.date = day(entry.occurred_at);
   model.generatedAt = entry.created_at;
-  model.preparedBy =
-    state.members.find((u) => u.id === actor(entry))?.name ||
-    business.authorized;
+  model.preparedBy = actor(entry)
+    ? personName(state, actor(entry))
+    : business.authorized;
   model.sections.unshift({
     title: "This payment · " + merchant.name,
     columns: ["Details", "Amount"],

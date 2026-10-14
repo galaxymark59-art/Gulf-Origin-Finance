@@ -55,10 +55,11 @@ export function NotificationSettings({
   }
   return (
     <>
-      <h2>Owner payment alerts</h2>
+      <h2>Collection alerts</h2>
       <p>
-        Ahmed Marwan receives an alert when any user records a payment. Alerts
-        show a private message; open the app to see the merchant and amount.
+        Ahmed Marwan gets an alert when anyone saves a merchant collection. Open
+        the app to see the merchant and amount. These details stay hidden on the
+        phone's lock screen.
       </p>
       {native ? (
         <>
@@ -68,12 +69,12 @@ export function NotificationSettings({
             internet connection.
           </p>
           <p>
-            Push sender:{" "}
+            Phone alerts:{" "}
             {ready === undefined
               ? "Checking…"
               : ready
-                ? "Configured"
-                : "Setup still needed"}
+                ? "Ready"
+                : "Setup needed"}
           </p>
           <button
             className="primary"

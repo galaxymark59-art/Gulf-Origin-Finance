@@ -1,3 +1,4 @@
+import { personName, personLabel } from "../presentation";
 import { useState } from "react";
 import {
   ArrowDownLeft,
@@ -87,10 +88,7 @@ export function Ledger({
                     >
                       {entryLabel(e.kind)}
                     </span>
-                    <small>
-                      {state.members.find((u) => u.id === actor(e))?.name ||
-                        "Previous owner"}
-                    </small>
+                    <small>{personName(state, actor(e))}</small>
                     {e.document?.lines.map((l) => (
                       <small key={l.id}>
                         {l.description} × {l.quantity / 1000}
@@ -155,8 +153,8 @@ export function Ledger({
                             ].includes(e.kind) && (
                               <button
                                 className="icon"
-                                title={t("Reverse entry", "عكس القيد")}
-                                aria-label={t("Reverse entry", "عكس القيد")}
+                                title={t("Undo entry", "عكس القيد")}
+                                aria-label={t("Undo entry", "عكس القيد")}
                                 onClick={() => actions.reverse(e)}
                               >
                                 <Undo2 size={17} />
@@ -282,15 +280,19 @@ export function Dashboard({
             </button>
             <button className="primary" onClick={onPayment}>
               <Plus size={17} />
-              {t("Record payment", "تسجيل دفعة")}
+              {t("Add collection", "تسجيل دفعة")}
             </button>
           </div>
         )}
       </div>
+      <p className="section-guide">
+        Use <strong>Add collection</strong> for money received from a merchant.
+        For money spent, open <strong>More → Cash & expenses</strong>.
+      </p>
       <div className="stats">
         <article className="stat featured">
           <div>
-            <span>{t("Total outstanding", "إجمالي المستحقات")}</span>
+            <span>{t("Total owed by merchants", "إجمالي المستحقات")}</span>
             <ArrowUpRight size={21} />
           </div>
           <strong>{money(outstanding)}</strong>
@@ -307,7 +309,7 @@ export function Dashboard({
           <strong>{money(collection(state.entries, today, today))}</strong>
           <small>
             {t(
-              "Actual payments, net of reversals",
+              "Money received, with undone entries removed",
               "الدفعات الفعلية بعد القيود العكسية",
             )}
           </small>
@@ -318,7 +320,12 @@ export function Dashboard({
             <ArrowDownLeft size={21} />
           </div>
           <strong>{money(collection(state.entries, month, today))}</strong>
-          <small>{t("Adjustments excluded", "باستثناء تعديلات الرصيد")}</small>
+          <small>
+            {t(
+              "Balance corrections are not collections",
+              "باستثناء تعديلات الرصيد",
+            )}
+          </small>
         </article>
         <article className="stat">
           <div>
@@ -348,16 +355,16 @@ export function Dashboard({
                     can(state.member, "manage_users") ? null : state.owner,
                   ).closing,
                 )
-              : "Opening cash needed"}
+              : "Set starting cash"}
           </strong>
-          <small>Open More → Cash to record or count cash.</small>
+          <small>More → Cash & expenses to enter or count cash.</small>
         </article>
         <article className="stat">
           <span>Savings in locker</span>
           <strong>
             {state.savingsAccount
               ? money(savingsPeriod(state, "1900-01-01", today).closing)
-              : "Opening savings needed"}
+              : "Set starting savings"}
           </strong>
           <small>Open More → Savings for the full history.</small>
         </article>
@@ -372,9 +379,7 @@ export function Dashboard({
               ),
             )}
           </strong>
-          <small>
-            {state.member?.name} · {state.member?.role}
-          </small>
+          <small>{personLabel(state)}</small>
         </article>
       </div>
       <div className="dashboard-grid">
@@ -659,7 +664,7 @@ export function Merchants({
                     Overdue since {m.due_on} · Open for reminder
                   </span>
                 )}
-                <small>{t("Current outstanding", "الرصيد الحالي")}</small>
+                <small>{t("Amount owed", "الرصيد الحالي")}</small>
                 <strong>{money(m.balance)}</strong>
                 <footer>
                   {m.last_payment

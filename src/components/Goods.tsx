@@ -1,3 +1,4 @@
+import { personName } from "../presentation";
 import { useState } from "react";
 import {
   day,
@@ -95,7 +96,7 @@ export function Goods({
           <p className="eyebrow">
             {kind === "invoice" ? "GOODS SUPPLIED" : "GOODS RETURNED"}
           </p>
-          <h1>{kind === "invoice" ? "Invoices" : "Returns"}</h1>
+          <h1>{kind === "invoice" ? "Goods supplied" : "Goods returned"}</h1>
           <p>
             {kind === "invoice"
               ? "Add goods supplied to a merchant, or upload a PDF and check its details. The confirmed total is added to the amount due once."
@@ -104,7 +105,7 @@ export function Goods({
         </div>
         {can(state.member, "record_transactions") && (
           <button className="primary" onClick={onAdd}>
-            {kind === "invoice" ? "New invoice" : "Record return"}
+            {kind === "invoice" ? "Add goods supplied" : "Add goods returned"}
           </button>
         )}
       </div>
@@ -189,9 +190,7 @@ export function Goods({
                       <td>
                         {dateTime(e.occurred_at)}
                         <small>
-                          {state.members.find(
-                            (u) => u.id === (e.created_by || e.owner_id),
-                          )?.name || "Owner"}
+                          {personName(state, e.created_by || e.owner_id)}
                         </small>
                       </td>
                       <td>
