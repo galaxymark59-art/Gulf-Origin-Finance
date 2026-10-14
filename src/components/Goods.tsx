@@ -1,4 +1,4 @@
-import { deletedIds, deletableEntries } from "../deletion";
+import { deletableEntries, activeLedgerEntries } from "../deletion";
 import { useBulkDelete } from "./BulkDelete";
 import { personName } from "../presentation";
 import { useEffect, useState } from "react";
@@ -36,10 +36,7 @@ export function Goods({
     [to, setTo] = useState(""),
     [page, setPage] = useState(0),
     [busy, setBusy] = useState(false);
-  const [showDeleted, setShowDeleted] = useState(false);
-  const deleted = deletedIds(state.entries);
-  const entries = state.entries
-    .filter((e) => deleted.has(e.id) === showDeleted)
+  const entries = activeLedgerEntries(state)
     .filter(
       (e) =>
         e.kind === kind &&
@@ -64,11 +61,9 @@ export function Goods({
   );
   const eligible = new Set(deletableEntries(state).map((e) => e.id));
   const selection = useBulkDelete(
-    showDeleted
-      ? []
-      : entries
-          .filter((e) => eligible.has(e.id))
-          .map((e) => ({ id: e.id, label: e.reference })),
+    entries
+      .filter((e) => eligible.has(e.id))
+      .map((e) => ({ id: e.id, label: e.reference })),
     can(state.member, "record_transactions") ? actions.bulkDelete : undefined,
     "entries",
   );
@@ -169,19 +164,6 @@ export function Goods({
         </label>
       </div>
       {selection.toolbar}
-      {state.entries.some((e) => e.kind === kind && deleted.has(e.id)) && (
-        <div className="deleted-toolbar">
-          <button
-            className="secondary"
-            onClick={() => {
-              setShowDeleted((v) => !v);
-              setPage(0);
-            }}
-          >
-            {showDeleted ? "Show active entries" : "View deleted entries"}
-          </button>
-        </div>
-      )}
       {!entries.length ? (
         <Empty
           title={

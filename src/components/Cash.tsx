@@ -1,9 +1,4 @@
-import {
-  deletedIds,
-  deletionNote,
-  deletableCash,
-  activeRecords,
-} from "../deletion";
+import { deletionNote, deletableCash, activeRecords } from "../deletion";
 import { useBulkDelete } from "./BulkDelete";
 import { personName } from "../presentation";
 import { useEffect, useState, type FormEvent } from "react";
@@ -128,7 +123,7 @@ export function CashForm({
           : kind === "savings_withdrawal"
             ? "Take money from the locker and choose where it went. It will be counted once."
             : original
-              ? "Delete this entry? Its cash and savings changes are cancelled. It is removed from the main list; a copy stays under Deleted entries."
+              ? "Delete this entry? It will be removed from the list and its cash and savings changes will be cancelled."
               : "Record actual money paid or received. Use a clear description so you can recognise it later."}
       </p>
       {original ? (
@@ -228,11 +223,8 @@ function CashHistory({
   onDelete?: (ids: string[]) => Promise<unknown>;
 }) {
   const [page, setPage] = useState(0);
-  const [showDeleted, setShowDeleted] = useState(false);
-  const deleted = deletedIds(state.cashMovements);
-  const visibleCount = entries.filter(
-    (e) => deleted.has(e.id) === showDeleted,
-  ).length;
+  const active = new Set(activeRecords(state.cashMovements).map((e) => e.id));
+  const visibleCount = entries.filter((e) => active.has(e.id)).length;
   useEffect(
     () =>
       setPage((current) =>
@@ -242,50 +234,36 @@ function CashHistory({
   );
   const eligible = new Set(deletableCash(state).map((e) => e.id));
   const selection = useBulkDelete(
-    showDeleted
-      ? []
-      : entries
-          .filter((e) => eligible.has(e.id))
-          .map((e) => ({ id: e.id, label: e.reference })),
+    entries
+      .filter((e) => active.has(e.id) && eligible.has(e.id))
+      .map((e) => ({ id: e.id, label: e.reference })),
     can(state.member, "manage_cash") ? onDelete : undefined,
     "entries",
   );
-  if (!entries.length)
+  if (!visibleCount)
     return (
       <Empty
         title="No entries for these dates"
         detail="Saved cash and savings entries will appear here."
       />
     );
-  const rows = [...entries].sort(
-    (a, b) =>
-      b.occurred_at.localeCompare(a.occurred_at) ||
-      b.created_at.localeCompare(a.created_at),
-  );
+  const rows = entries
+    .filter((e) => active.has(e.id))
+    .sort(
+      (a, b) =>
+        b.occurred_at.localeCompare(a.occurred_at) ||
+        b.created_at.localeCompare(a.created_at),
+    );
   let running = savingsOpening || 0;
-  const active = new Set(activeRecords(state.cashMovements).map((e) => e.id));
   const balances = new Map<string, number>();
   [...rows].reverse().forEach((e) => {
-    if (showDeleted || active.has(e.id)) running += e.savings_delta;
+    running += e.savings_delta;
     balances.set(e.id, running);
   });
-  const visibleRows = rows.filter((e) => deleted.has(e.id) === showDeleted);
+  const visibleRows = rows;
   return (
     <>
       {selection.toolbar}
-      {entries.some((e) => deleted.has(e.id)) && (
-        <div className="deleted-toolbar">
-          <button
-            className="secondary"
-            onClick={() => {
-              setShowDeleted((v) => !v);
-              setPage(0);
-            }}
-          >
-            {showDeleted ? "Show active entries" : "View deleted entries"}
-          </button>
-        </div>
-      )}
       <div className="table-scroll">
         <table>
           <thead>
