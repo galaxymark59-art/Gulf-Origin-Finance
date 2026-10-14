@@ -5,6 +5,7 @@ import {
   merchantDeletion,
   entryDeletions,
   activeRecords,
+  activeLedgerEntries,
 } from "./deletion";
 import { cashDay, savingsPeriod } from "./finance";
 import { transactionReport } from "./exports";
@@ -60,6 +61,47 @@ it("deleting a collection cancels its balance effect without losing the audit re
   expect(view.entries.filter((e) => !deleted.has(e.id))).toHaveLength(0);
   expect(collection(view.entries, "2026-10-14", "2026-10-14")).toBe(0);
   expect(deletedIds([{ ...paid, note: deletionNote("QA 001") }]).size).toBe(0);
+});
+
+it("hides removed merchants' opening rows and legacy undo pairs from normal history", () => {
+  const state = emptyState("owner");
+  state.merchants = [
+    { id: "removed", deleted_at: "2026-10-14T10:00:00Z" },
+    { id: "active" },
+  ] as Merchant[];
+  const opening = {
+    id: "opening",
+    merchant_id: "removed",
+    kind: "opening",
+    delta: 300000,
+    note: "Opening balance",
+  } as Entry;
+  const old = {
+    id: "old",
+    merchant_id: "active",
+    kind: "adjustment",
+    delta: -50000,
+    note: "Correction",
+  } as Entry;
+  const undone = {
+    ...old,
+    id: "undo",
+    kind: "reversal",
+    delta: 50000,
+    reverses: old.id,
+    note: "Undo mistake",
+  } as Entry;
+  const saved = {
+    id: "new",
+    merchant_id: "active",
+    kind: "payment",
+    amount: 10000,
+  } as Entry;
+  state.entries = [opening, old, undone, saved];
+  expect(activeLedgerEntries(state)).toEqual([saved]);
+  state.business.deleted_merchants = { active: "2026-10-14T10:00:00Z" };
+  expect(activeLedgerEntries(visibleState(state))).toEqual([]);
+  expect(state.entries).toHaveLength(4);
 });
 
 it("removes deleted collections before day, month and collector filters", () => {

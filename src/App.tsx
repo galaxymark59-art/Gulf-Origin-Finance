@@ -1112,7 +1112,7 @@ function Workspace({
             <>
               <p>
                 {t(
-                  "Delete this entry? Its effect on the merchant balance and cash is cancelled. It is removed from the main list. A copy stays under Deleted entries for your records.",
+                  "Delete this entry? It will be removed from the list and its effect on the merchant balance and cash will be cancelled.",
                   "يضيف هذا قيداً عكسياً دائماً مع الاحتفاظ بالمعاملة الأصلية.",
                 )}
               </p>
@@ -1147,12 +1147,7 @@ function Workspace({
                       },
                     });
                     setModal(undefined);
-                    notify(
-                      t(
-                        "Entry deleted. A copy is kept under Deleted entries.",
-                        "تم حفظ القيد العكسي محلياً.",
-                      ),
-                    );
+                    notify(t("Entry deleted.", "تم حفظ القيد العكسي محلياً."));
                   } catch (error) {
                     notify(
                       error instanceof Error

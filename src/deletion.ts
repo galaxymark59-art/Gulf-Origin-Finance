@@ -71,6 +71,17 @@ export function deletableEntries(state: State): Entry[] {
   );
 }
 
+export function activeLedgerEntries(state: State): Entry[] {
+  const removedMerchants = new Set(
+    state.merchants
+      .filter((merchant) => merchant.deleted_at)
+      .map((merchant) => merchant.id),
+  );
+  return activeRecords(state.entries).filter(
+    (entry) => !removedMerchants.has(entry.merchant_id),
+  );
+}
+
 export function entryDeletions(
   state: State,
   ids: readonly string[],

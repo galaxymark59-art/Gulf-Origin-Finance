@@ -1,4 +1,4 @@
-import { deletedIds, deletableEntries } from "../deletion";
+import { deletedIds, deletableEntries, activeLedgerEntries } from "../deletion";
 import { useBulkDelete } from "./BulkDelete";
 import { personName, personLabel } from "../presentation";
 import { useEffect, useState } from "react";
@@ -44,11 +44,9 @@ export function Ledger({
 }) {
   const t = useText();
   const [page, setPage] = useState(0);
-  const [showDeleted, setShowDeleted] = useState(false);
   const deleted = deletedIds(state.entries);
-  const sorted = entries
-    .filter((e) => deleted.has(e.id) === showDeleted)
-    .reverse();
+  const visible = new Set(activeLedgerEntries(state).map((e) => e.id));
+  const sorted = entries.filter((e) => visible.has(e.id)).reverse();
   useEffect(
     () =>
       setPage((current) =>
@@ -58,15 +56,13 @@ export function Ledger({
   );
   const eligible = new Set(deletableEntries(state).map((e) => e.id));
   const selection = useBulkDelete(
-    showDeleted
-      ? []
-      : entries
-          .filter((e) => eligible.has(e.id))
-          .map((e) => ({ id: e.id, label: e.reference })),
+    sorted
+      .filter((e) => eligible.has(e.id))
+      .map((e) => ({ id: e.id, label: e.reference })),
     can(state.member, "record_transactions") ? actions.bulkDelete : undefined,
     "entries",
   );
-  return !entries.length ? (
+  return !sorted.length ? (
     <Empty
       title={t("No transactions yet", "لا توجد معاملات بعد")}
       detail={t(
@@ -77,24 +73,6 @@ export function Ledger({
   ) : (
     <>
       {selection.toolbar}
-      {entries.some((e) => deleted.has(e.id)) && (
-        <div className="deleted-toolbar">
-          <button
-            className="secondary"
-            onClick={() => {
-              setShowDeleted((v) => !v);
-              setPage(0);
-            }}
-          >
-            {showDeleted ? "Show active entries" : "View deleted entries"}
-          </button>
-        </div>
-      )}
-      {!sorted.length && (
-        <p className="empty">
-          No {showDeleted ? "deleted" : "active"} entries.
-        </p>
-      )}
       <div className="table-scroll">
         <table>
           <thead>
