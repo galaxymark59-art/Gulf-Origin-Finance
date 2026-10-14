@@ -1584,6 +1584,10 @@ dialog::backdrop {
   color: #30495c;
   margin-bottom: 6px;
 }
+p.section-guide > strong {
+  display: inline;
+  margin-bottom: 0;
+}
 .section-guide p {
   margin: 0;
 }
