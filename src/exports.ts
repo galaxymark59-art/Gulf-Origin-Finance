@@ -1,4 +1,5 @@
 import { personName, personLabel } from "./presentation";
+import { activeRecords } from "./deletion";
 import {
   type Business,
   type State,
@@ -296,7 +297,7 @@ export function transactionReport(
     from + " to " + to,
     "Mcube-activity-" + from + "-" + to,
   );
-  const entries = state.entries.filter(
+  const entries = activeRecords(state.entries).filter(
     (e) =>
       day(e.occurred_at) >= from &&
       day(e.occurred_at) <= to &&
@@ -304,7 +305,7 @@ export function transactionReport(
       (!filter.merchant || e.merchant_id === filter.merchant) &&
       (!filter.kind || e.kind === filter.kind),
   );
-  const cash = state.cashMovements.filter(
+  const cash = activeRecords(state.cashMovements).filter(
     (e) =>
       day(e.occurred_at) >= from &&
       day(e.occurred_at) <= to &&

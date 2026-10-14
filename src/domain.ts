@@ -1,4 +1,5 @@
 import { mcubeLogo } from "./branding";
+import { activeRecords } from "./deletion";
 export type Language = "en" | "ar";
 export type Role = "owner" | "collector" | "viewer";
 export type Permission =
@@ -253,20 +254,17 @@ export const dateTime = (iso: string, language: Language = "en") =>
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(iso));
-export function collection(entries: Entry[], from: string, to: string) {
+export function collection(
+  entries: Entry[],
+  from: string,
+  to: string,
+  allEntries = entries,
+) {
+  const active = new Set(activeRecords(allEntries).map((e) => e.id));
   return entries
+    .filter((e) => active.has(e.id))
     .filter((e) => day(e.occurred_at) >= from && day(e.occurred_at) <= to)
-    .reduce(
-      (n, e) =>
-        n +
-        (e.kind === "payment"
-          ? e.amount
-          : e.kind === "reversal" &&
-              !["adjustment", "invoice", "return"].includes(e.method)
-            ? -e.amount
-            : 0),
-      0,
-    );
+    .reduce((n, e) => n + (e.kind === "payment" ? e.amount : 0), 0);
 }
 export function applyPending(state: State, op: Operation): State {
   const s = structuredClone(state);

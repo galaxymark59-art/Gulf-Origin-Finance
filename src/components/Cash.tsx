@@ -1,6 +1,12 @@
-import { deletedIds, deletionNote } from "../deletion";
+import {
+  deletedIds,
+  deletionNote,
+  deletableCash,
+  activeRecords,
+} from "../deletion";
+import { useBulkDelete } from "./BulkDelete";
 import { personName } from "../presentation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   day,
   dateTime,
@@ -213,15 +219,37 @@ function CashHistory({
   entries,
   onReverse,
   savingsOpening,
+  onDelete,
 }: {
   state: State;
   entries: CashMovement[];
   onReverse: (m: CashMovement) => void;
   savingsOpening?: number;
+  onDelete?: (ids: string[]) => Promise<unknown>;
 }) {
   const [page, setPage] = useState(0);
   const [showDeleted, setShowDeleted] = useState(false);
   const deleted = deletedIds(state.cashMovements);
+  const visibleCount = entries.filter(
+    (e) => deleted.has(e.id) === showDeleted,
+  ).length;
+  useEffect(
+    () =>
+      setPage((current) =>
+        Math.min(current, Math.max(0, Math.ceil(visibleCount / 30) - 1)),
+      ),
+    [visibleCount],
+  );
+  const eligible = new Set(deletableCash(state).map((e) => e.id));
+  const selection = useBulkDelete(
+    showDeleted
+      ? []
+      : entries
+          .filter((e) => eligible.has(e.id))
+          .map((e) => ({ id: e.id, label: e.reference })),
+    can(state.member, "manage_cash") ? onDelete : undefined,
+    "entries",
+  );
   if (!entries.length)
     return (
       <Empty
@@ -235,14 +263,16 @@ function CashHistory({
       b.created_at.localeCompare(a.created_at),
   );
   let running = savingsOpening || 0;
+  const active = new Set(activeRecords(state.cashMovements).map((e) => e.id));
   const balances = new Map<string, number>();
   [...rows].reverse().forEach((e) => {
-    running += e.savings_delta;
+    if (showDeleted || active.has(e.id)) running += e.savings_delta;
     balances.set(e.id, running);
   });
   const visibleRows = rows.filter((e) => deleted.has(e.id) === showDeleted);
   return (
     <>
+      {selection.toolbar}
       {entries.some((e) => deleted.has(e.id)) && (
         <div className="deleted-toolbar">
           <button
@@ -260,6 +290,7 @@ function CashHistory({
         <table>
           <thead>
             <tr>
+              {onDelete && can(state.member, "manage_cash") && <th>Select</th>}
               <th>Date</th>
               <th>Details</th>
               <th>Reference / user</th>
@@ -272,6 +303,9 @@ function CashHistory({
           <tbody>
             {visibleRows.slice(page * 30, (page + 1) * 30).map((m) => (
               <tr key={m.id}>
+                {onDelete && can(state.member, "manage_cash") && (
+                  <td>{selection.checkbox(m.id)}</td>
+                )}
                 <td>{dateTime(m.occurred_at)}</td>
                 <td>
                   <strong>{cashLabel(m.kind)}</strong>
@@ -344,10 +378,12 @@ export function Cash({
   state,
   onSave,
   notify,
+  onDelete,
 }: {
   state: State;
   onSave: Save;
   notify: (s: string) => void;
+  onDelete?: (ids: string[]) => Promise<unknown>;
 }) {
   const today = day(new Date().toISOString()),
     manager = can(state.member, "manage_users");
@@ -679,7 +715,12 @@ export function Cash({
         <section className="card">
           <CashHistory
             state={state}
-            entries={c.movements}
+            onDelete={onDelete}
+            entries={state.cashMovements.filter(
+              (e) =>
+                day(e.occurred_at) === date &&
+                (!scope || e.cash_user === scope),
+            )}
             onReverse={(m) => {
               setReverse(m);
               setKind("reversal");
@@ -791,10 +832,12 @@ export function Savings({
   state,
   onSave,
   notify,
+  onDelete,
 }: {
   state: State;
   onSave: Save;
   notify: (s: string) => void;
+  onDelete?: (ids: string[]) => Promise<unknown>;
 }) {
   const today = day(new Date().toISOString());
   const [from, setFrom] = useState(today.slice(0, 7) + "-01"),
@@ -957,7 +1000,13 @@ export function Savings({
             <h2>Savings history</h2>
             <CashHistory
               state={state}
-              entries={s.entries}
+              onDelete={onDelete}
+              entries={state.cashMovements.filter(
+                (e) =>
+                  e.savings_delta !== 0 &&
+                  day(e.occurred_at) >= from &&
+                  day(e.occurred_at) <= to,
+              )}
               savingsOpening={s.opening}
               onReverse={(m) => {
                 setReverse(m);

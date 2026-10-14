@@ -1,6 +1,7 @@
 import { supabase } from "./client";
 import { readLocal, writeLocal } from "./storage";
 import { can, normalizeState } from "./finance";
+import { entryDeletions, cashDeletions, merchantDeletions } from "./deletion";
 import {
   defaultBusiness,
   emptyState,
@@ -79,6 +80,45 @@ export class FinanceEngine {
       await this.save({ ...this.state, queue: [...this.state.queue, op] });
     });
     if (navigator.onLine) void this.sync();
+  }
+  async deleteSelected(
+    kind: "entries" | "cash" | "merchants",
+    ids: readonly string[],
+  ) {
+    const permission =
+      kind === "merchants"
+        ? "manage_users"
+        : kind === "cash"
+          ? "manage_cash"
+          : "record_transactions";
+    if (!can(this.state.member, permission))
+      throw Error("Your account cannot delete these records.");
+    let count = 0;
+    await this.serial(async () => {
+      const current = this.view();
+      const operations =
+        kind === "entries"
+          ? entryDeletions(current, ids)
+          : kind === "cash"
+            ? cashDeletions(current, ids)
+            : merchantDeletions(current, ids);
+      if (!ids.length || !operations.length)
+        throw Error(
+          "No active records selected. Refresh the list and try again.",
+        );
+      for (const operation of operations) {
+        if (operation.kind === "entry" || operation.kind === "cash_entry")
+          operation.payload.created_by = this.owner;
+      }
+      // One durable write: closing the app cannot lose the remaining selected deletions.
+      await this.save({
+        ...this.state,
+        queue: [...this.state.queue, ...operations],
+      });
+      count = kind === "merchants" ? ids.length : operations.length;
+    });
+    if (navigator.onLine) void this.sync();
+    return count;
   }
   private async cloud() {
     const { data, error } = await supabase.rpc("get_snapshot");

@@ -10,6 +10,7 @@ import ExistingRecords from "./components/ExistingRecords";
 import { More } from "./components/More";
 import { EntryForm } from "./components/Forms";
 import type { FinanceEngine } from "./engine";
+import { entryDeletions, cashDeletions, merchantDeletions } from "./deletion";
 import "./style.css";
 if (!import.meta.env.DEV)
   throw Error("Fictional QA is only available in development.");
@@ -65,6 +66,13 @@ function QA() {
     [message, setMessage] = useState("");
   const state = visibleState(s),
     actions = {
+      bulkDelete: async (ids: string[]) => {
+        setS((v) => ({
+          ...v,
+          queue: [...v.queue, ...entryDeletions(visibleState(v), ids)],
+        }));
+        setMessage("Deleted in fictional QA memory only.");
+      },
       download: () => setMessage("QA only"),
       share: () => {},
       sent: () => {},
@@ -78,6 +86,36 @@ function QA() {
           submitted.
         </p>
         <div className="toolbar">
+          <button
+            className="secondary"
+            onClick={() => {
+              const stamp = new Date().toISOString();
+              setS({
+                ...structuredClone(initial),
+                merchants: [{ ...initial.merchants[0], balance: 465000 }],
+                entries: Array.from({ length: 35 }, (_, i) => ({
+                  id: "qa-payment-" + i,
+                  merchant_id: initial.merchants[0].id,
+                  owner_id: initial.owner,
+                  created_by: initial.owner,
+                  cash_user: initial.owner,
+                  kind: "payment",
+                  amount: 1000,
+                  delta: -1000,
+                  previous: 500000 - i * 1000,
+                  balance: 499000 - i * 1000,
+                  occurred_at: stamp,
+                  created_at: stamp,
+                  note: "Fictional QA only",
+                  method: "cash",
+                  reference: "QA " + (i + 1),
+                })),
+              });
+              setPage("reports");
+            }}
+          >
+            Load bulk delete example
+          </button>
           {[
             "dashboard",
             "merchants",
@@ -152,6 +190,12 @@ function QA() {
         ) : page === "cash" ? (
           <Cash
             state={state}
+            onDelete={async (ids) =>
+              setS((v) => ({
+                ...v,
+                queue: [...v.queue, ...cashDeletions(visibleState(v), ids)],
+              }))
+            }
             onSave={async (op) => {
               setS((v) => ({ ...v, queue: [...v.queue, op] }));
               setMessage("Saved in QA memory only.");
@@ -161,6 +205,12 @@ function QA() {
         ) : page === "savings" ? (
           <Savings
             state={state}
+            onDelete={async (ids) =>
+              setS((v) => ({
+                ...v,
+                queue: [...v.queue, ...cashDeletions(visibleState(v), ids)],
+              }))
+            }
             onSave={async (op) =>
               setS((v) => ({ ...v, queue: [...v.queue, op] }))
             }
@@ -190,6 +240,12 @@ function QA() {
         ) : page === "merchants" ? (
           <Merchants
             state={state}
+            onDelete={async (ids) =>
+              setS((v) => ({
+                ...v,
+                queue: [...v.queue, ...merchantDeletions(visibleState(v), ids)],
+              }))
+            }
             onAdd={() => {}}
             onMerchant={() => setPage("invoice")}
           />
