@@ -92,6 +92,7 @@ export type CashCheck = {
   pending?: boolean;
 };
 export type Business = {
+  theme?: string;
   deleted_merchants?: Record<string, string>;
   name: string;
   phone: string;
@@ -197,6 +198,7 @@ export type State = {
   cashChecks: CashCheck[];
 };
 export const defaultBusiness: Business = {
+  theme: "teal-mint",
   name: "Mcube Exporters",
   phone: "",
   email: "",

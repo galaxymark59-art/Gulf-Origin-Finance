@@ -2,6 +2,7 @@ import { deletionNote, merchantDeletion, deletedIds } from "./deletion";
 import appMark from "./assets/mcube-logo.svg";
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -71,6 +72,7 @@ import { Users as UserAccounts } from "./components/Users";
 import { exportReport, statementReport } from "./exports";
 import { ChangePassword } from "./components/ChangePassword";
 import { usePaymentAlerts } from "./notifications";
+import { applyTheme, themeLogo } from "./themes";
 const ExistingRecords = lazy(() => import("./components/ExistingRecords"));
 export function App() {
   const [session, setSession] = useState<Session | null>();
@@ -368,6 +370,9 @@ function Workspace({
     return () => clearTimeout(timer);
   }, [toast]);
   const state = engine.view();
+  useLayoutEffect(() => {
+    if (ready) applyTheme(state.business.theme);
+  }, [ready, state.business.theme]);
   const deletedEntryIds = deletedIds(state.entries);
   useEffect(() => {
     if (!native) return;
@@ -532,7 +537,7 @@ function Workspace({
             setPage("dashboard");
           }}
         >
-          <img src={appMark} alt="" width="42" />
+          <img src={themeLogo(state.business.theme)} alt="" width="42" />
           <span>
             Mcube Exporters<small>FINANCE WORKSPACE</small>
           </span>

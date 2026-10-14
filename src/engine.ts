@@ -2,6 +2,7 @@ import { supabase } from "./client";
 import { readLocal, writeLocal } from "./storage";
 import { can, normalizeState } from "./finance";
 import { entryDeletions, cashDeletions, merchantDeletions } from "./deletion";
+import { themes } from "./themes";
 import {
   defaultBusiness,
   emptyState,
@@ -77,6 +78,25 @@ export class FinanceEngine {
       op.payload.created_by = this.owner;
     await this.serial(async () => {
       if (this.state.queue.some((q) => q.id === op.id)) return;
+      await this.save({ ...this.state, queue: [...this.state.queue, op] });
+    });
+    if (navigator.onLine) void this.sync();
+  }
+  async changeTheme(id: string) {
+    if (!themes.some((theme) => theme.id === id))
+      throw Error("Choose a theme from the catalog.");
+    if (
+      this.state.member?.role !== "owner" ||
+      !can(this.state.member, "manage_users")
+    )
+      throw Error("Only a business owner can change the theme.");
+    await this.serial(async () => {
+      const op: Operation = {
+        id: crypto.randomUUID(),
+        kind: "business",
+        created_at: new Date().toISOString(),
+        payload: { ...this.view().business, theme: id },
+      };
       await this.save({ ...this.state, queue: [...this.state.queue, op] });
     });
     if (navigator.onLine) void this.sync();
