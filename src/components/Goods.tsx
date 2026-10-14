@@ -1,3 +1,4 @@
+import { deletedIds } from "../deletion";
 import { personName } from "../presentation";
 import { useState } from "react";
 import {
@@ -34,7 +35,10 @@ export function Goods({
     [to, setTo] = useState(""),
     [page, setPage] = useState(0),
     [busy, setBusy] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const deleted = deletedIds(state.entries);
   const entries = state.entries
+    .filter((e) => deleted.has(e.id) === showDeleted)
     .filter(
       (e) =>
         e.kind === kind &&
@@ -146,6 +150,19 @@ export function Goods({
           />
         </label>
       </div>
+      {state.entries.some((e) => e.kind === kind && deleted.has(e.id)) && (
+        <div className="deleted-toolbar">
+          <button
+            className="secondary"
+            onClick={() => {
+              setShowDeleted((v) => !v);
+              setPage(0);
+            }}
+          >
+            {showDeleted ? "Show active entries" : "View deleted entries"}
+          </button>
+        </div>
+      )}
       {!entries.length ? (
         <Empty
           title={
@@ -243,10 +260,10 @@ export function Goods({
                             {can(state.member, "record_transactions") &&
                               !reversed && (
                                 <button
-                                  className="link"
+                                  className="link danger"
                                   onClick={() => actions.reverse(e)}
                                 >
-                                  Correct entry
+                                  Delete entry
                                 </button>
                               )}
                           </div>

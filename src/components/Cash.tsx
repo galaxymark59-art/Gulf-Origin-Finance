@@ -1,3 +1,4 @@
+import { deletedIds, deletionNote } from "../deletion";
 import { personName } from "../presentation";
 import { useState, type FormEvent } from "react";
 import {
@@ -94,7 +95,9 @@ export function CashForm({
           created_by: state.owner,
           cash_user: original?.cash_user || state.owner,
           destination: original?.destination || destination,
-          note: String(f.get("note") || "").trim(),
+          note: original
+            ? deletionNote(original.reference)
+            : String(f.get("note") || "").trim(),
           occurred_at,
           created_at,
           reference: "",
@@ -119,7 +122,7 @@ export function CashForm({
           : kind === "savings_withdrawal"
             ? "Take money from the locker and choose where it went. It will be counted once."
             : original
-              ? "This adds a correction entry. The original record stays in the history."
+              ? "Delete this entry? Its cash and savings changes are cancelled. It is removed from the main list; a copy stays under Deleted entries."
               : "Record actual money paid or received. Use a clear description so you can recognise it later."}
       </p>
       {original ? (
@@ -179,18 +182,27 @@ export function CashForm({
               : "Description / reason"
         }
       >
-        <textarea name="note" required maxLength={1000} />
+        <textarea
+          name="note"
+          required
+          maxLength={1000}
+          defaultValue={original ? "Delete " + original.reference : undefined}
+          readOnly={!!original}
+        />
       </Field>
       {error && (
         <p className="alert" role="alert">
           {error}
         </p>
       )}
-      <button className="primary full" disabled={busy}>
+      <button
+        className={original ? "primary danger full" : "primary full"}
+        disabled={busy}
+      >
         {busy
           ? "Saving…"
           : original
-            ? "Save correction"
+            ? "Delete entry"
             : "Save " + cashLabel(kind).toLowerCase()}
       </button>
     </form>
@@ -208,6 +220,8 @@ function CashHistory({
   savingsOpening?: number;
 }) {
   const [page, setPage] = useState(0);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const deleted = deletedIds(state.cashMovements);
   if (!entries.length)
     return (
       <Empty
@@ -226,8 +240,22 @@ function CashHistory({
     running += e.savings_delta;
     balances.set(e.id, running);
   });
+  const visibleRows = rows.filter((e) => deleted.has(e.id) === showDeleted);
   return (
     <>
+      {entries.some((e) => deleted.has(e.id)) && (
+        <div className="deleted-toolbar">
+          <button
+            className="secondary"
+            onClick={() => {
+              setShowDeleted((v) => !v);
+              setPage(0);
+            }}
+          >
+            {showDeleted ? "Show active entries" : "View deleted entries"}
+          </button>
+        </div>
+      )}
       <div className="table-scroll">
         <table>
           <thead>
@@ -242,7 +270,7 @@ function CashHistory({
             </tr>
           </thead>
           <tbody>
-            {rows.slice(page * 30, (page + 1) * 30).map((m) => (
+            {visibleRows.slice(page * 30, (page + 1) * 30).map((m) => (
               <tr key={m.id}>
                 <td>{dateTime(m.occurred_at)}</td>
                 <td>
@@ -275,8 +303,11 @@ function CashHistory({
                     !state.cashMovements.some((x) => x.reverses === m.id) &&
                     (m.created_by === state.owner ||
                       can(state.member, "manage_users")) && (
-                      <button className="link" onClick={() => onReverse(m)}>
-                        Correct entry
+                      <button
+                        className="link danger"
+                        onClick={() => onReverse(m)}
+                      >
+                        Delete entry
                       </button>
                     )}
                 </td>
@@ -285,7 +316,7 @@ function CashHistory({
           </tbody>
         </table>
       </div>
-      {rows.length > 30 && (
+      {visibleRows.length > 30 && (
         <div className="pagination">
           <button
             className="secondary"
@@ -295,11 +326,11 @@ function CashHistory({
             Previous
           </button>
           <span>
-            {page + 1} / {Math.ceil(rows.length / 30)}
+            {page + 1} / {Math.ceil(visibleRows.length / 30)}
           </span>
           <button
             className="secondary"
-            disabled={(page + 1) * 30 >= rows.length}
+            disabled={(page + 1) * 30 >= visibleRows.length}
             onClick={() => setPage((p) => p + 1)}
           >
             Next
@@ -734,7 +765,7 @@ export function Cash({
       )}
       {kind && (
         <Modal
-          title={cashLabel(kind)}
+          title={reverse ? "Delete entry?" : cashLabel(kind)}
           onClose={() => {
             setKind(undefined);
             setReverse(undefined);
@@ -943,7 +974,7 @@ export function Savings({
       )}
       {kind && (
         <Modal
-          title={cashLabel(kind)}
+          title={reverse ? "Delete entry?" : cashLabel(kind)}
           onClose={() => {
             setKind(undefined);
             setReverse(undefined);

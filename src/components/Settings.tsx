@@ -206,7 +206,10 @@ export function Settings({
                       ] as [keyof Business, string][]
                     ).map(([key, label]) => (
                       <Field key={key} label={label}>
-                        <input name={key} defaultValue={state.business[key]} />
+                        <input
+                          name={key}
+                          defaultValue={String(state.business[key] || "")}
+                        />
                       </Field>
                     ))}
                   </div>

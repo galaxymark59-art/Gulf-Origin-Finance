@@ -1,3 +1,4 @@
+import { deletedIds } from "../deletion";
 import { personName, personLabel } from "../presentation";
 import { useState } from "react";
 import {
@@ -6,7 +7,7 @@ import {
   Download,
   Share2,
   Check,
-  Undo2,
+  Trash2,
   Search,
   Plus,
   ChevronRight,
@@ -41,7 +42,11 @@ export function Ledger({
 }) {
   const t = useText();
   const [page, setPage] = useState(0);
-  const sorted = [...entries].reverse();
+  const [showDeleted, setShowDeleted] = useState(false);
+  const deleted = deletedIds(state.entries);
+  const sorted = entries
+    .filter((e) => deleted.has(e.id) === showDeleted)
+    .reverse();
   return !entries.length ? (
     <Empty
       title={t("No transactions yet", "لا توجد معاملات بعد")}
@@ -52,6 +57,24 @@ export function Ledger({
     />
   ) : (
     <>
+      {entries.some((e) => deleted.has(e.id)) && (
+        <div className="deleted-toolbar">
+          <button
+            className="secondary"
+            onClick={() => {
+              setShowDeleted((v) => !v);
+              setPage(0);
+            }}
+          >
+            {showDeleted ? "Show active entries" : "View deleted entries"}
+          </button>
+        </div>
+      )}
+      {!sorted.length && (
+        <p className="empty">
+          No {showDeleted ? "deleted" : "active"} entries.
+        </p>
+      )}
       <div className="table-scroll">
         <table>
           <thead>
@@ -89,6 +112,9 @@ export function Ledger({
                       {entryLabel(e.kind)}
                     </span>
                     <small>{personName(state, actor(e))}</small>
+                    {deleted.has(e.id) && (
+                      <span className="badge">Deleted</span>
+                    )}
                     {e.document?.lines.map((l) => (
                       <small key={l.id}>
                         {l.description} × {l.quantity / 1000}
@@ -116,17 +142,19 @@ export function Ledger({
                           >
                             <Download size={17} />
                           </button>
-                          {can(state.member, "record_transactions") && (
-                            <button
-                              className="icon"
-                              title={t("Share PDF", "مشاركة PDF")}
-                              aria-label={t("Share PDF", "مشاركة PDF")}
-                              onClick={() => actions.share(e)}
-                            >
-                              <Share2 size={17} />
-                            </button>
-                          )}
                           {can(state.member, "record_transactions") &&
+                            !deleted.has(e.id) && (
+                              <button
+                                className="icon"
+                                title={t("Share PDF", "مشاركة PDF")}
+                                aria-label={t("Share PDF", "مشاركة PDF")}
+                                onClick={() => actions.share(e)}
+                              >
+                                <Share2 size={17} />
+                              </button>
+                            )}
+                          {can(state.member, "record_transactions") &&
+                            !deleted.has(e.id) &&
                             r.status !== "confirmed_sent" && (
                               <button
                                 className="icon"
@@ -152,26 +180,28 @@ export function Ledger({
                               "return",
                             ].includes(e.kind) && (
                               <button
-                                className="icon"
-                                title={t("Undo entry", "عكس القيد")}
-                                aria-label={t("Undo entry", "عكس القيد")}
+                                className="icon danger"
+                                title={t("Delete entry", "عكس القيد")}
+                                aria-label={t("Delete entry", "عكس القيد")}
                                 onClick={() => actions.reverse(e)}
                               >
-                                <Undo2 size={17} />
+                                <Trash2 size={17} />
                               </button>
                             )}
                         </div>
                         <small>
-                          {r.status === "confirmed_sent"
-                            ? t(
-                                "Manually confirmed sent",
-                                "تم تأكيد الإرسال يدوياً",
-                              )
-                            : r.status === "share_initiated"
-                              ? t("Share initiated", "بدأت المشاركة")
-                              : r.status === "failed"
-                                ? t("Share failed · retry", "فشلت المشاركة")
-                                : t("Ready to share", "جاهز للمشاركة")}
+                          {deleted.has(e.id)
+                            ? "Deleted · saved receipt"
+                            : r.status === "confirmed_sent"
+                              ? t(
+                                  "Manually confirmed sent",
+                                  "تم تأكيد الإرسال يدوياً",
+                                )
+                              : r.status === "share_initiated"
+                                ? t("Share initiated", "بدأت المشاركة")
+                                : r.status === "failed"
+                                  ? t("Share failed · retry", "فشلت المشاركة")
+                                  : t("Ready to share", "جاهز للمشاركة")}
                         </small>
                       </>
                     ) : (
@@ -188,7 +218,7 @@ export function Ledger({
           </tbody>
         </table>
       </div>
-      {entries.length > 30 && (
+      {sorted.length > 30 && (
         <div className="pagination">
           <button
             className="secondary"
@@ -198,12 +228,12 @@ export function Ledger({
             {t("Previous", "السابق")}
           </button>
           <span>
-            {page + 1} / {Math.ceil(entries.length / 30)}
+            {page + 1} / {Math.ceil(sorted.length / 30)}
           </span>
           <button
             className="secondary"
             onClick={() => setPage(page + 1)}
-            disabled={(page + 1) * 30 >= entries.length}
+            disabled={(page + 1) * 30 >= sorted.length}
           >
             {t("Next", "التالي")}
           </button>
@@ -226,17 +256,12 @@ export function Dashboard({
   actions: EntryActions;
 }) {
   const t = useText();
+  const merchants = state.merchants.filter((m) => !m.deleted_at);
   const today = day(new Date().toISOString());
   const month = today.slice(0, 7) + "-01";
-  const outstanding = state.merchants.reduce(
-    (n, m) => n + Math.max(0, m.balance),
-    0,
-  );
-  const credit = state.merchants.reduce(
-    (n, m) => n + Math.max(0, -m.balance),
-    0,
-  );
-  const pending = state.merchants.filter((m) => m.balance > 0);
+  const outstanding = merchants.reduce((n, m) => n + Math.max(0, m.balance), 0);
+  const credit = merchants.reduce((n, m) => n + Math.max(0, -m.balance), 0);
+  const pending = merchants.filter((m) => m.balance > 0);
   const week = Array.from({ length: 7 }, (_, i) => {
     const stamp = new Date(today + "T12:00:00+03:00");
     stamp.setUTCDate(stamp.getUTCDate() - 6 + i);
@@ -258,9 +283,7 @@ export function Dashboard({
           <p className="eyebrow">
             {t("YOUR BUSINESS, AT A GLANCE", "نظرة على أعمالك")}
           </p>
-          <h1>
-            {t("A clear view of your collections.", "رؤية واضحة لتحصيلاتك.")}
-          </h1>
+          <h1>{t("Dashboard", "رؤية واضحة لتحصيلاتك.")}</h1>
           <p>
             {new Intl.DateTimeFormat("en-GB", {
               timeZone: "Asia/Riyadh",
@@ -332,9 +355,9 @@ export function Dashboard({
             <span>{t("Total merchants", "عدد التجار")}</span>
             <span className="mini-logo">M</span>
           </div>
-          <strong>{state.merchants.length}</strong>
+          <strong>{merchants.length}</strong>
           <small>
-            {state.merchants.filter((m) => m.balance <= 0).length}{" "}
+            {merchants.filter((m) => m.balance <= 0).length}{" "}
             {t("settled or in credit", "مسدد أو دائن")}
           </small>
         </article>
@@ -382,14 +405,14 @@ export function Dashboard({
           <small>{personLabel(state)}</small>
         </article>
       </div>
-      <div className="dashboard-grid">
+      <div className="dashboard-grid simple-dashboard">
         <section className="card">
           <div className="section-heading">
             <div>
               <h2>{t("Weekly collections", "التحصيل الأسبوعي")}</h2>
               <p>
                 {t(
-                  "Cash received over the last seven days",
+                  "Money received over the last seven days",
                   "المبالغ المستلمة خلال سبعة أيام",
                 )}
               </p>
@@ -415,62 +438,6 @@ export function Dashboard({
                 <small>{x.label}</small>
               </div>
             ))}
-          </div>
-        </section>
-        <section className="card">
-          <div className="section-heading">
-            <div>
-              <h2>{t("Collection priorities", "أولويات التحصيل")}</h2>
-              <p>
-                {t("Highest outstanding balances", "أعلى الأرصدة المستحقة")}
-              </p>
-            </div>
-          </div>
-          {!pending.length ? (
-            <Empty
-              title={t("All clear", "كل شيء واضح")}
-              detail={t(
-                "Merchants with outstanding balances appear here.",
-                "سيظهر التجار ذوو الأرصدة المستحقة هنا.",
-              )}
-            />
-          ) : (
-            <div className="priority-list">
-              {[...pending]
-                .sort((a, b) => b.balance - a.balance)
-                .slice(0, 5)
-                .map((m) => (
-                  <button key={m.id} onClick={() => onMerchant(m)}>
-                    <span className="avatar">
-                      {m.name.slice(0, 2).toUpperCase()}
-                    </span>
-                    <span>
-                      <strong>{m.name}</strong>
-                      <small>
-                        {m.prefix} · {m.city || m.phone}
-                      </small>
-                    </span>
-                    <b>{money(m.balance)}</b>
-                    <ChevronRight size={16} />
-                  </button>
-                ))}
-            </div>
-          )}
-          <div className="subtle-summary">
-            <span>
-              {t("Unsent receipts", "إيصالات غير مرسلة")}{" "}
-              <b>
-                {
-                  state.receipts.filter((r) => r.status !== "confirmed_sent")
-                    .length
-                }
-              </b>
-            </span>
-            {credit > 0 && (
-              <span>
-                {t("Merchant credits", "أرصدة دائنة")} {money(credit)}
-              </span>
-            )}
           </div>
         </section>
       </div>
@@ -517,6 +484,7 @@ export function Merchants({
   const [sort, setSort] = useState("name");
   const [page, setPage] = useState(0);
   const merchants = state.merchants
+    .filter((m) => (filter === "deleted" ? !!m.deleted_at : !m.deleted_at))
     .filter((m) =>
       (m.name + m.phone + m.prefix + m.contact)
         .toLowerCase()
@@ -525,6 +493,7 @@ export function Merchants({
     .filter(
       (m) =>
         filter === "all" ||
+        filter === "deleted" ||
         (filter === "overdue"
           ? isOverdue(m)
           : filter === "outstanding"
@@ -545,18 +514,10 @@ export function Merchants({
           <p className="eyebrow">
             {t("YOUR MERCHANT DIRECTORY", "دليل التجار")}
           </p>
-          <h1>
-            {t(
-              "Good relationships. Clear balances.",
-              "علاقات طيبة وأرصدة واضحة.",
-            )}
-          </h1>
+          <h1>{t("Merchants", "التجار")}</h1>
           <p>
-            {state.merchants.length}{" "}
-            {t(
-              "merchants, registered once and always ready.",
-              "تاجر مسجل وجاهز دائماً.",
-            )}
+            {state.merchants.filter((m) => !m.deleted_at).length}{" "}
+            {t("merchants", "تاجر مسجل وجاهز دائماً.")}
           </p>
         </div>
         {can(state.member, "record_transactions") && (
@@ -600,6 +561,7 @@ export function Merchants({
         >
           <option value="all">{t("All merchants", "كل التجار")}</option>
           <option value="overdue">Overdue · WhatsApp reminders</option>
+          <option value="deleted">Deleted merchants</option>
           <option value="outstanding">
             {t("Outstanding", "لديهم مستحقات")}
           </option>
@@ -625,10 +587,10 @@ export function Merchants({
             title={
               search
                 ? t("No matching merchants", "لا يوجد تجار مطابقون")
-                : t("Your first merchant starts here", "ابدأ بإضافة أول تاجر")
+                : t("No merchants yet", "ابدأ بإضافة أول تاجر")
             }
             detail={t(
-              "Add their details once. Every payment and receipt stays connected.",
+              "Add a merchant to start saving collections.",
               "أضف البيانات مرة واحدة واربط كل الدفعات والإيصالات.",
             )}
             action={
@@ -658,6 +620,9 @@ export function Merchants({
                   <ChevronRight size={17} />
                 </div>
                 <h2>{m.name}</h2>
+                {m.deleted_at && (
+                  <span className="badge">Deleted · open to restore</span>
+                )}
                 <p>{m.city || m.phone}</p>
                 {isOverdue(m) && (
                   <span className="badge overdue">

@@ -14,7 +14,7 @@
   --muted: #63727f;
   --line: #e1e7ed;
   --surface: white;
-  --radius: 14px;
+  --radius: 8px;
 }
 * {
   box-sizing: border-box;
@@ -88,6 +88,7 @@ small {
   color: var(--muted);
 }
 .eyebrow {
+  display: none;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.8px;
@@ -102,7 +103,7 @@ small {
   gap: 9px;
   min-height: 44px;
   padding: 12px 18px;
-  border-radius: 9px;
+  border-radius: 6px;
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -1776,4 +1777,44 @@ textarea {
 }
 .notification-list small {
   color: var(--muted, #687684);
+}
+.simple-dashboard {
+  grid-template-columns: minmax(0, 1fr);
+}
+.card,
+.stat,
+.primary {
+  box-shadow: none;
+}
+.more-link {
+  min-height: 100px;
+  padding: 20px;
+}
+.more-icon {
+  border-radius: 8px;
+}
+.primary.danger {
+  background: #a33737;
+  color: white;
+}
+.primary.danger:hover {
+  background: #842a2a;
+}
+.secondary.danger,
+.link.danger,
+.icon.danger {
+  color: #a33737;
+}
+.secondary.danger {
+  border-color: #e5bbbb;
+}
+.icon.danger:hover,
+.secondary.danger:hover {
+  background: #fff0f0;
+}
+.deleted-toolbar {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
