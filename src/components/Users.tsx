@@ -1,3 +1,4 @@
+import { personName, personRole } from "../presentation";
 import { useState, type FormEvent } from "react";
 import {
   type State,
@@ -64,10 +65,11 @@ export function Users({
       <div className="page-heading">
         <div>
           <p className="eyebrow">YOUR TEAM</p>
-          <h1>Users</h1>
+          <h1>People & access</h1>
           <p>
-            Add a separate account for each person. Owners have full access,
-            collectors record work, and viewers can only read permitted records.
+            Add a separate account for each person. Administrators have full
+            access, collectors record work, and viewers can only read permitted
+            records.
           </p>
         </div>
         <button
@@ -95,11 +97,11 @@ export function Users({
               {state.members.map((u) => (
                 <tr key={u.id}>
                   <td>
-                    <strong>{u.name}</strong>
+                    <strong>{personName(state, u.id)}</strong>
                     <small>{u.email}</small>
                   </td>
                   <td>
-                    {u.role}
+                    {personRole(state, u)}
                     <small>{u.active ? "Active" : "Disabled"}</small>
                   </td>
                   <td>
@@ -149,7 +151,11 @@ export function Users({
           onClose={() => setEditing(undefined)}
         >
           <UserForm
-            member={editing}
+            member={
+              editing
+                ? { ...editing, name: personName(state, editing.id) }
+                : editing
+            }
             allowOwners={can(state.member, "manage_owners")}
             busy={busy}
             error={error}
@@ -313,7 +319,9 @@ function UserForm({
             setPermissions({});
           }}
         >
-          {allowOwners && <option value="owner">Owner · full access</option>}
+          {allowOwners && (
+            <option value="owner">Administrator · full access</option>
+          )}
           <option value="collector">
             Collector · record collections and other work
           </option>

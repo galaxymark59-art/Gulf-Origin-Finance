@@ -1,4 +1,14 @@
 # Mcube update status
+
+## Interface clarity update — 1.1.1
+
+The Mcube M mark is embedded with the versioned app bundle. The browser shell cache migrates away from the legacy Gulf Origin cache, and stable logo URLs refresh online while keeping an offline fallback. Browser users receive the update by refreshing; their sign-in and saved records are retained.
+
+More now has labelled icons, grouped tools and large padded buttons. Finance setup and history panels have consistent inner spacing, and form fields stack on narrow phones. Labels explain the task: Add collection means merchant money received; Correct amount owed fixes the amount due without recording cash; Cash & expenses handles money spent. The creator is displayed as Ahmed Marwan (Creator), with AM initials. Display labels do not change account roles or permissions.
+
+44 automated tests pass, including two cache-upgrade regression checks. Forms were checked at 320, 768, 1024 and 1440 pixels. Version 1.1.1 package checks run in CI, including an in-place signed Android update from 1.1.0. APK and Windows screens remain bundled: they require an app update for UI changes, rather than a browser refresh. The release records the completed installer checks.
+
+## Previous release — 1.1.0
 Updated 14 October 2026, Asia/Calcutta. Version 1.1.0 Android and Windows installer checks passed for application commit `60c70cbb3155c5cd5752872f0bc2a03ff269e63f`. Production publication is recorded in the GitHub release.
 
 | Change and location | Verification | Remaining limit |
@@ -22,6 +32,6 @@ Updated 14 October 2026, Asia/Calcutta. Version 1.1.0 Android and Windows instal
 
 Live Supabase migration checks: all pre-update transactions and receipts preserved; 1 account, 11 transactions, 9 receipts. New notification tables have RLS and Realtime publication enabled. Security advisor reported no errors; intentional authenticated SECURITY DEFINER RPC warnings were reviewed against explicit permission and user checks. Leaked-password checking is not enabled on the current free Auth plan.
 
-The existing local pending SAR 1,500 correction is preserved for normal conflict review; no balance or queue has been silently cleared. No real payment, reminder or staff account was created as test data.
+The existing local pending correction is preserved for normal conflict review; no balance or queue has been silently cleared. No real payment, reminder or staff account was created as test data.
 
 Phone acceptance remains: PIN/fingerprint, force-stop/offline recovery, WhatsApp PDF attachment, native Downloads, background grace and notifications on the user's device. Windows tray notifications and installation on the user's PC also need acceptance. Android force-stop, OS notification blocking, no internet, Windows Quit or PC sleep can delay alerts.

@@ -7,6 +7,8 @@ import { GoodsForm } from "./components/GoodsForm";
 import { Reports } from "./components/FinanceReports";
 import { Dashboard, Merchants } from "./components/Views";
 import ExistingRecords from "./components/ExistingRecords";
+import { More } from "./components/More";
+import { EntryForm } from "./components/Forms";
 import type { FinanceEngine } from "./engine";
 import "./style.css";
 if (!import.meta.env.DEV)
@@ -85,6 +87,9 @@ function QA() {
             "savings",
             "reports",
             "import",
+            "more",
+            "collection",
+            "correction",
           ].map((p) => (
             <button className="secondary" key={p} onClick={() => setPage(p)}>
               {p}
@@ -109,9 +114,42 @@ function QA() {
               <option>viewer</option>
             </select>
           </label>
+          <button
+            className="secondary"
+            onClick={() =>
+              setS((v) => ({ ...v, cashAccounts: [], savingsAccount: null }))
+            }
+          >
+            Preview starting amounts
+          </button>
         </div>
         {message && <p role="status">{message}</p>}
-        {page === "cash" ? (
+        {page === "more" ? (
+          <More
+            state={state}
+            onOpen={(p) =>
+              setPage(
+                p === "invoices" ? "invoice" : p === "returns" ? "return" : p,
+              )
+            }
+          />
+        ) : page === "collection" || page === "correction" ? (
+          <section className="card panel">
+            <h1>
+              {page === "collection" ? "Add collection" : "Correct amount owed"}
+            </h1>
+            <EntryForm
+              key={page}
+              merchants={state.merchants}
+              selected={state.merchants[0]}
+              kind={page === "collection" ? "payment" : "adjustment"}
+              onSave={async (op) => {
+                setS((v) => ({ ...v, queue: [...v.queue, op] }));
+                setMessage("Saved in fictional QA memory only.");
+              }}
+            />
+          </section>
+        ) : page === "cash" ? (
           <Cash
             state={state}
             onSave={async (op) => {
@@ -129,7 +167,7 @@ function QA() {
             notify={setMessage}
           />
         ) : page === "invoice" || page === "return" ? (
-          <section className="card">
+          <section className="card panel">
             <GoodsForm
               key={page}
               state={state}
@@ -141,7 +179,12 @@ function QA() {
             />
           </section>
         ) : page === "import" ? (
-          <ExistingRecords state={state} engine={{refresh:async()=>{}} as FinanceEngine} onDone={()=>setPage("merchants")} previewOnly />
+          <ExistingRecords
+            state={state}
+            engine={{ refresh: async () => {} } as FinanceEngine}
+            onDone={() => setPage("merchants")}
+            previewOnly
+          />
         ) : page === "reports" ? (
           <Reports state={state} actions={actions} notify={setMessage} />
         ) : page === "merchants" ? (

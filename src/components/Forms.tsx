@@ -238,6 +238,18 @@ export function EntryForm({
   }
   return (
     <form onSubmit={submit}>
+      <div className="section-guide">
+        <strong>
+          {kind === "payment"
+            ? "Money received from a merchant"
+            : "Fix a mistake in the amount owed"}
+        </strong>
+        <p>
+          {kind === "payment"
+            ? "Enter money the merchant has paid you. Their amount owed goes down. For money you spend, open More → Cash & expenses."
+            : "Use this only when the amount owed is wrong. For example, if it is SAR 100 too high, choose Reduce and enter 100. No cash is collected or spent."}
+        </p>
+      </div>
       {!selected && (
         <>
           <Field label={t("Find merchant", "البحث عن تاجر")}>
@@ -277,27 +289,34 @@ export function EntryForm({
       {m && (
         <div className="balance-preview">
           <small>
-            {m.name} · {t("Current outstanding", "الرصيد الحالي")}
+            {m.name} · {t("Amount owed now", "الرصيد الحالي")}
           </small>
           <strong>{money(m.balance)}</strong>
         </div>
       )}
       {kind === "adjustment" && (
-        <Field label={t("Adjustment direction", "اتجاه التعديل")}>
+        <Field label={t("What needs correcting?", "اتجاه التعديل")}>
           <select
             value={direction}
             onChange={(e) => setDirection(e.target.value)}
           >
             <option value="1">
-              {t("Increase outstanding", "زيادة الرصيد")}
+              {t("Increase what the merchant owes", "زيادة الرصيد")}
             </option>
             <option value="-1">
-              {t("Decrease outstanding", "تخفيض الرصيد")}
+              {t("Reduce what the merchant owes", "تخفيض الرصيد")}
             </option>
           </select>
         </Field>
       )}
-      <Field label={t("Amount · SAR", "المبلغ · ر.س")}>
+      <Field
+        label={t(
+          kind === "payment"
+            ? "Money received · SAR"
+            : "Correction amount · SAR",
+          "المبلغ · ر.س",
+        )}
+      >
         <input
           className="amount-input"
           inputMode="decimal"
@@ -310,7 +329,7 @@ export function EntryForm({
       </Field>
       {m && (
         <div className="new-balance">
-          <span>{t("New outstanding", "الرصيد الجديد")}</span>
+          <span>{t("Amount owed after saving", "الرصيد الجديد")}</span>
           <strong>{money(m.balance + delta)}</strong>
         </div>
       )}
@@ -329,7 +348,7 @@ export function EntryForm({
       )}
       <div className="form-grid">
         {kind === "payment" && (
-          <Field label={t("Payment method", "طريقة الدفع")}>
+          <Field label={t("How did you receive the money?", "طريقة الدفع")}>
             <select name="method">
               <option value="cash">{t("Cash", "نقداً")}</option>
               <option value="bank">{t("Bank transfer", "تحويل بنكي")}</option>
@@ -346,12 +365,12 @@ export function EntryForm({
           <input name="date" type="datetime-local" />
         </Field>
       </div>
-      <Field label={t("Note / reason", "ملاحظة / سبب")}>
+      <Field label={t("What is this for? (optional)", "ملاحظة / سبب")}>
         <textarea name="note" maxLength={1000} />
       </Field>
       <p className="hint">
         {t(
-          "Records are append-only. Corrections use a reversal. Offline records receive their final reference after syncing.",
+          "Your saved history is kept. To undo a mistake, open the saved entry and choose Undo entry. If you are offline, the final receipt is ready after reconnecting.",
           "القيود غير قابلة للتعديل. تصحح الأخطاء بقيد عكسي. يخصص المرجع النهائي بعد المزامنة.",
         )}
       </p>
@@ -362,12 +381,17 @@ export function EntryForm({
       )}
       <div className="actions">
         <button className="secondary" disabled={busy} value="save">
-          {t("Save", "حفظ")}
+          {t(kind === "payment" ? "Save collection" : "Save correction", "حفظ")}
         </button>
         <button className="primary" disabled={busy} value="share">
           {busy
             ? t("Saving…", "جار الحفظ…")
-            : t("Save & share PDF", "حفظ ومشاركة PDF")}
+            : t(
+                kind === "payment"
+                  ? "Save collection & share PDF"
+                  : "Save correction & share PDF",
+                "حفظ ومشاركة PDF",
+              )}
         </button>
       </div>
     </form>
