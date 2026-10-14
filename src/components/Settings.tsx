@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   Building2,
   ShieldCheck,
@@ -6,6 +6,7 @@ import {
   Download,
   LockKeyhole,
   LogOut,
+  Bell,
 } from "lucide-react";
 import { Field } from "./Common";
 import { useText } from "../i18n";
@@ -15,19 +16,28 @@ import { setPin } from "../security";
 import { native } from "../native";
 import { supabase } from "../client";
 import { downloadBlob } from "../documents";
+import { can } from "../finance";
+import { ChangePassword } from "./ChangePassword";
+import { NotificationSettings } from "./NotificationSettings";
+import { type usePaymentAlerts } from "../notifications";
 export function Settings({
   state,
   engine,
   onLock,
   notify,
+  initialTab = "business",
+  alerts,
 }: {
   state: State;
   engine: FinanceEngine;
   onLock: () => void;
   notify: (s: string) => void;
+  initialTab?: string;
+  alerts: ReturnType<typeof usePaymentAlerts>;
 }) {
   const t = useText();
-  const [tab, setTab] = useState("business");
+  const [tab, setTab] = useState(initialTab);
+  useEffect(() => setTab(initialTab), [initialTab]);
   const [busy, setBusy] = useState(false);
   const [logo, setLogo] = useState(state.business.logo);
   async function save(e: FormEvent<HTMLFormElement>) {
@@ -91,6 +101,10 @@ export function Settings({
           {[
             ["business", t("Business profile", "بيانات الشركة"), Building2],
             ["security", t("Security", "الأمان"), ShieldCheck],
+            ...(state.member?.id === state.businessOwner &&
+            state.member?.role === "owner"
+              ? [["notifications", "Payment alerts", Bell]]
+              : []),
             [
               "sync",
               t("Sync & backup", "المزامنة والنسخ الاحتياطي"),
@@ -108,6 +122,14 @@ export function Settings({
           ))}
         </nav>
         <section className="card settings-content">
+          {tab === "notifications" && (
+            <NotificationSettings
+              state={state}
+              events={alerts.events}
+              onRead={alerts.markRead}
+              notify={notify}
+            />
+          )}
           {tab === "business" && (
             <>
               <h2>{t("Business profile", "بيانات الشركة")}</h2>
@@ -118,85 +140,90 @@ export function Settings({
                 )}
               </p>
               <form onSubmit={save}>
-                <div className="logo-upload">
-                  {logo ? (
-                    <img src={logo} alt="Business logo" />
-                  ) : (
-                    <img src="/logo.svg" alt="Gulf Origin" />
-                  )}
-                  <Field
-                    label={t(
-                      "Company logo · PNG or JPEG, under 500 KB",
-                      "شعار الشركة · PNG أو JPEG أقل من 500 كيلوبايت",
+                <fieldset
+                  disabled={!can(state.member, "manage_users")}
+                  className="plain-fieldset"
+                >
+                  <div className="logo-upload">
+                    {logo ? (
+                      <img src={logo} alt="Business logo" />
+                    ) : (
+                      <img src="/logo.svg" alt="Mcube Exporters" />
                     )}
-                  >
+                    <Field
+                      label={t(
+                        "Company logo · PNG or JPEG, under 500 KB",
+                        "شعار الشركة · PNG أو JPEG أقل من 500 كيلوبايت",
+                      )}
+                    >
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          if (
+                            f.size > 500000 ||
+                            !["image/png", "image/jpeg"].includes(f.type)
+                          ) {
+                            notify(
+                              t(
+                                "Choose a PNG or JPEG under 500 KB.",
+                                "اختر صورة PNG أو JPEG أقل من 500 كيلوبايت.",
+                              ),
+                            );
+                            return;
+                          }
+                          const r = new FileReader();
+                          r.onload = () => setLogo(String(r.result));
+                          r.readAsDataURL(f);
+                        }}
+                      />
+                    </Field>
+                  </div>
+                  <Field label={t("Business name", "اسم الشركة")}>
                     <input
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (!f) return;
-                        if (
-                          f.size > 500000 ||
-                          !["image/png", "image/jpeg"].includes(f.type)
-                        ) {
-                          notify(
-                            t(
-                              "Choose a PNG or JPEG under 500 KB.",
-                              "اختر صورة PNG أو JPEG أقل من 500 كيلوبايت.",
-                            ),
-                          );
-                          return;
-                        }
-                        const r = new FileReader();
-                        r.onload = () => setLogo(String(r.result));
-                        r.readAsDataURL(f);
-                      }}
+                      name="name"
+                      defaultValue={state.business.name}
+                      required
+                      maxLength={150}
                     />
                   </Field>
-                </div>
-                <Field label={t("Business name", "اسم الشركة")}>
-                  <input
-                    name="name"
-                    defaultValue={state.business.name}
-                    required
-                    maxLength={150}
-                  />
-                </Field>
-                <div className="form-grid">
-                  {(
-                    [
-                      ["phone", t("Phone / WhatsApp", "الهاتف / واتساب")],
-                      ["email", t("Email", "البريد الإلكتروني")],
-                      ["city", t("City", "المدينة")],
+                  <div className="form-grid">
+                    {(
                       [
-                        "vat",
-                        t(
-                          "VAT registration (optional)",
-                          "رقم ضريبة القيمة المضافة (اختياري)",
-                        ),
-                      ],
-                      ["address", t("Address", "العنوان")],
-                      ["authorized", t("Authorized name", "اسم المفوض")],
-                    ] as [keyof Business, string][]
-                  ).map(([key, label]) => (
-                    <Field key={key} label={label}>
-                      <input name={key} defaultValue={state.business[key]} />
-                    </Field>
-                  ))}
-                </div>
-                <Field label={t("Receipt footer", "تذييل الإيصال")}>
-                  <textarea
-                    name="footer"
-                    defaultValue={state.business.footer}
-                  />
-                </Field>
-                <p className="hint">Saudi Arabia · SAR</p>
-                <button className="primary" disabled={busy}>
-                  {busy
-                    ? t("Saving…", "جار الحفظ…")
-                    : t("Save profile", "حفظ البيانات")}
-                </button>
+                        ["phone", t("Phone / WhatsApp", "الهاتف / واتساب")],
+                        ["email", t("Email", "البريد الإلكتروني")],
+                        ["city", t("City", "المدينة")],
+                        [
+                          "vat",
+                          t(
+                            "VAT registration (optional)",
+                            "رقم ضريبة القيمة المضافة (اختياري)",
+                          ),
+                        ],
+                        ["address", t("Address", "العنوان")],
+                        ["authorized", t("Authorized name", "اسم المفوض")],
+                      ] as [keyof Business, string][]
+                    ).map(([key, label]) => (
+                      <Field key={key} label={label}>
+                        <input name={key} defaultValue={state.business[key]} />
+                      </Field>
+                    ))}
+                  </div>
+                  <Field label={t("Receipt footer", "تذييل الإيصال")}>
+                    <textarea
+                      name="footer"
+                      defaultValue={state.business.footer}
+                    />
+                  </Field>
+                  <p className="hint">Saudi Arabia · SAR</p>
+                  <button className="primary" disabled={busy}>
+                    {busy
+                      ? t("Saving…", "جار الحفظ…")
+                      : t("Save profile", "حفظ البيانات")}
+                  </button>
+                </fieldset>
               </form>
             </>
           )}
@@ -205,8 +232,8 @@ export function Settings({
               <h2>{t("Security & app lock", "الأمان وقفل التطبيق")}</h2>
               <p>
                 {t(
-                  "Your sign-in persists. The app lock protects access without signing you out. Auto-lock: five minutes of inactivity or whenever Android enters the background.",
-                  "يبقى تسجيل الدخول محفوظاً. يحمي قفل التطبيق البيانات دون تسجيل الخروج. القفل التلقائي بعد خمس دقائق أو عند انتقال أندرويد للخلفية.",
+                  "Your sign-in stays saved. Returning within 30 seconds does not lock the app. After 30 seconds away or two minutes without activity, unlock with your PIN or fingerprint.",
+                  "يبقى تسجيل الدخول محفوظاً. فترة سماح 30 ثانية عند العودة. بعدها أو بعد دقيقتين دون نشاط افتح بالرمز أو البصمة.",
                 )}
               </p>
               <form
@@ -224,6 +251,7 @@ export function Settings({
                     await setPin(state.owner, pin, f.get("biometric") === "on");
                     notify(t("App PIN saved.", "تم حفظ رمز التطبيق."));
                     form.reset();
+                    onLock();
                   } catch (e) {
                     notify(
                       e instanceof Error ? e.message : "Unable to save PIN.",
@@ -294,6 +322,9 @@ export function Settings({
                   {t("Sign out", "تسجيل الخروج")}
                 </button>
               </div>
+              <ChangePassword
+                onDone={() => notify("Your password was changed.")}
+              />
               <p className="hint">
                 {t(
                   "Password recovery is available on the sign-in screen.",
@@ -446,9 +477,11 @@ export function Settings({
                     const cipher = await crypto.subtle.encrypt(
                       { name: "AES-GCM", iv },
                       key,
-                      new TextEncoder().encode(JSON.stringify(engine.state)),
+                      new TextEncoder().encode(
+                        JSON.stringify(await engine.backup()),
+                      ),
                     );
-                    downloadBlob(
+                    await downloadBlob(
                       new Blob(
                         [
                           JSON.stringify({
@@ -460,7 +493,7 @@ export function Settings({
                         ],
                         { type: "application/json" },
                       ),
-                      "Gulf-Origin-encrypted-backup.json",
+                      "Mcube-encrypted-backup.json",
                     );
                     notify(
                       t(
@@ -585,7 +618,7 @@ export function Settings({
               </form>
             </>
           )}
-          <footer className="version">Gulf Origin Finance · v1.0.1</footer>
+          <footer className="version">Mcube Exporters · v1.1.0</footer>
         </section>
       </div>
     </>

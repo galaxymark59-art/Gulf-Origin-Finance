@@ -1,4 +1,13 @@
 # Android build and device acceptance
+Version 1.1.0 updates this same app to Mcube Exporters, adds team permissions, invoices/returns, existing-record import, cash checks, savings and payment-history sharing. The application ID and encrypted database identity remain unchanged.
+
+The release workflow restores a persistent private PKCS#12 signer from GitHub secrets and builds `android/app/build/outputs/apk/release/app-release.apk`. It tests the actual signed APK's first launch in addition to debug instrumentation. The Firebase Android SDK configuration is injected from `MCUBE_GOOGLE_SERVICES_JSON`; the private sender credential is held only by Supabase. No private sender or service-role key is included in the APK.
+
+After installing, sign in, set the app PIN, then open More → Settings → Payment alerts → Enable phone alerts and allow Android notifications. Actual closed-app delivery must be checked on the user's phone. Android force-stop, disabled permissions, power restrictions or no internet can delay notifications.
+
+The old 1.0.1 debug signer differs from the stable Mcube signer. Before removing an old installation due to a signature conflict, preserve any unsynced records. Cloud records remain in the same Supabase project. Future Mcube releases reuse the persistent signer.
+
+## Earlier build notes
 ## Requirements
 Node 22.12+, Java 21, Android SDK 36, Android SDK Platform Tools, and Gradle-wrapper network access. Minimum Android version is Android 10 (API 29).
 

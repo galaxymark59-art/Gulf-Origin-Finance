@@ -1,0 +1,6 @@
+[functions.manage-users]
+verify_jwt = true
+
+# The handler verifies user sessions with Auth and authenticates cron with a dedicated secret.
+[functions.payment-notifications]
+verify_jwt = false

@@ -5,6 +5,7 @@ export const SecureVault = registerPlugin<{
   set(options: { key: string; value: string }): Promise<void>;
   remove(options: { key: string }): Promise<void>;
   biometric(): Promise<void>;
+  pushReady(): Promise<{ ready: boolean }>;
   download(options: {
     name: string;
     base64: string;
