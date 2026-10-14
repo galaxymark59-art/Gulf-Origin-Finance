@@ -234,11 +234,13 @@ export function GoodsForm({
             }}
           >
             <option value="">Choose merchant</option>
-            {state.merchants.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name} · {m.prefix}
-              </option>
-            ))}
+            {state.merchants
+              .filter((m) => !m.deleted_at)
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} · {m.prefix}
+                </option>
+              ))}
           </select>
         </Field>
       )}

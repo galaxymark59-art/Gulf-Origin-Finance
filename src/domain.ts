@@ -91,6 +91,7 @@ export type CashCheck = {
   pending?: boolean;
 };
 export type Business = {
+  deleted_merchants?: Record<string, string>;
   name: string;
   phone: string;
   email: string;
@@ -119,6 +120,7 @@ export type Merchant = {
   created_at: string;
   last_payment?: string;
   due_on?: string;
+  deleted_at?: string;
 };
 export type Entry = {
   id: string;
@@ -354,16 +356,24 @@ export function applyPending(state: State, op: Operation): State {
   return s;
 }
 export function visibleState(base: State): State {
-  return base.queue.reduce<State>((s, op) => applyPending(s, op), {
+  const state = base.queue.reduce<State>((s, op) => applyPending(s, op), {
     ...base,
     queue: [],
   });
+  return {
+    ...state,
+    merchants: state.merchants.map((merchant) => ({
+      ...merchant,
+      deleted_at:
+        state.business.deleted_merchants?.[merchant.id] ?? merchant.deleted_at,
+    })),
+  };
 }
 export function friendly(message: string) {
   if (message.includes("DUPLICATE_RETURN"))
     return "This return reference is already saved for this merchant. Open the existing return instead.";
   if (message.includes("REVERSE_RETURNS_FIRST"))
-    return "Correct the linked returns before reversing this invoice.";
+    return "Delete the linked goods returns before deleting this invoice.";
   if (
     message.includes("invoice_reference_unique") ||
     message.includes("invoice_file_unique")

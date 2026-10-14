@@ -1,3 +1,4 @@
+import { deletionNote, merchantDeletion, deletedIds } from "./deletion";
 import appMark from "./assets/mcube-logo.svg";
 import {
   useEffect,
@@ -23,6 +24,7 @@ import {
   Download,
   ShieldCheck,
   Bell,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "./client";
 import { native } from "./native";
@@ -320,6 +322,7 @@ function Workspace({
     | "return"
     | "statement"
     | "reminder"
+    | "delete-merchant"
   >();
   const [reversal, setReversal] = useState<Entry>();
   const [toast, setToast] = useState("");
@@ -365,6 +368,7 @@ function Workspace({
     return () => clearTimeout(timer);
   }, [toast]);
   const state = engine.view();
+  const deletedEntryIds = deletedIds(state.entries);
   useEffect(() => {
     if (!native) return;
     const listener = CapacitorApp.addListener("backButton", () => {
@@ -560,12 +564,17 @@ function Workspace({
               <item.icon size={20} />
               <span>{item.label}</span>
               {item.id === "collections" &&
-                state.receipts.filter((r) => r.status !== "confirmed_sent")
-                  .length > 0 && (
+                state.receipts.filter(
+                  (r) =>
+                    r.status !== "confirmed_sent" &&
+                    !deletedEntryIds.has(r.transaction_id),
+                ).length > 0 && (
                   <b>
                     {
                       state.receipts.filter(
-                        (r) => r.status !== "confirmed_sent",
+                        (r) =>
+                          r.status !== "confirmed_sent" &&
+                          !deletedEntryIds.has(r.transaction_id),
                       ).length
                     }
                   </b>
@@ -573,14 +582,6 @@ function Workspace({
             </button>
           ))}
         </nav>
-        <div className="sidebar-bottom">
-          <ShieldCheck size={19} />
-          <strong>{t("Made for your business", "مصمم لأعمالك")}</strong>
-          <p>
-            {t("Simple records. Lasting clarity.", "قيود بسيطة ووضوح دائم.")}
-          </p>
-          <small>Mcube Exporters</small>
-        </div>
       </aside>
       <main>
         <header className="topbar">
@@ -763,8 +764,46 @@ function Workspace({
                   </strong>
                 </article>
               </div>
+              {merchant.deleted_at && (
+                <p className="alert">
+                  This merchant is deleted. Their saved history is kept below.
+                </p>
+              )}
               <div className="workspace-actions">
-                {writable && (
+                {can(state.member, "manage_users") &&
+                  (merchant.deleted_at ? (
+                    <button
+                      className="primary"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          await engine.enqueue(
+                            merchantDeletion(state, merchant.id, false),
+                          );
+                          notify("Merchant restored.");
+                        } catch (error) {
+                          notify(
+                            error instanceof Error
+                              ? friendly(error.message)
+                              : "Unable to restore merchant.",
+                          );
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      Restore merchant
+                    </button>
+                  ) : (
+                    <button
+                      className="secondary danger"
+                      onClick={() => setModal("delete-merchant")}
+                    >
+                      <Trash2 size={17} /> Delete merchant
+                    </button>
+                  ))}
+                {writable && !merchant.deleted_at && (
                   <>
                     <button
                       className="primary"
@@ -843,7 +882,7 @@ function Workspace({
                   <p className="eyebrow">
                     {t("EVERY MOVEMENT, ACCOUNTED FOR", "كل حركة مسجلة")}
                   </p>
-                  <h1>{t("Collections & merchant history", "سجل التحصيل.")}</h1>
+                  <h1>{t("Collections", "سجل التحصيل.")}</h1>
                   <p>
                     {t(
                       "See money received from merchants and changes to what they owe. Add expenses in More → Cash & expenses.",
@@ -941,27 +980,69 @@ function Workspace({
       {modal && (
         <Modal
           title={
-            modal === "merchant"
-              ? t("Add merchant", "إضافة تاجر")
-              : modal === "invoice"
-                ? "Add goods supplied"
-                : modal === "return"
-                  ? "Add goods returned"
-                  : modal === "statement"
-                    ? "Merchant statement"
-                    : modal === "reminder"
-                      ? "WhatsApp payment reminder"
-                      : modal === "edit"
-                        ? t("Edit merchant", "تعديل التاجر")
-                        : modal === "payment"
-                          ? t("Add collection", "تسجيل دفعة")
-                          : modal === "adjustment"
-                            ? t("Correct amount owed", "تعديل الرصيد")
-                            : t("Undo entry", "عكس المعاملة")
+            modal === "delete-merchant"
+              ? "Delete merchant?"
+              : modal === "merchant"
+                ? t("Add merchant", "إضافة تاجر")
+                : modal === "invoice"
+                  ? "Add goods supplied"
+                  : modal === "return"
+                    ? "Add goods returned"
+                    : modal === "statement"
+                      ? "Merchant statement"
+                      : modal === "reminder"
+                        ? "WhatsApp payment reminder"
+                        : modal === "edit"
+                          ? t("Edit merchant", "تعديل التاجر")
+                          : modal === "payment"
+                            ? t("Add collection", "تسجيل دفعة")
+                            : modal === "adjustment"
+                              ? t("Correct amount owed", "تعديل الرصيد")
+                              : t("Delete entry", "عكس المعاملة")
           }
           onClose={() => setModal(undefined)}
         >
-          {modal === "statement" && merchant ? (
+          {modal === "delete-merchant" && merchant ? (
+            <>
+              <p>
+                Delete <strong>{merchant.name}</strong> from your merchant list?
+                Saved payments and receipts stay in history. You can restore the
+                merchant from Deleted merchants.
+              </p>
+              <p className="hint">
+                The saved record keeps its amount owed:{" "}
+                {money(merchant.balance)}.
+              </p>
+              <button
+                className="primary danger full"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await engine.enqueue(
+                      merchantDeletion(state, merchant.id, true),
+                    );
+                    setModal(undefined);
+                    setPage("merchants");
+                    setSelected(undefined);
+                    notify(
+                      "Merchant deleted. You can restore it from Deleted merchants.",
+                    );
+                  } catch (error) {
+                    notify(
+                      error instanceof Error
+                        ? friendly(error.message)
+                        : "Unable to delete merchant.",
+                    );
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Delete merchant
+              </button>
+            </>
+          ) : modal === "statement" && merchant ? (
             <Statement state={state} merchant={merchant} notify={notify} />
           ) : modal === "reminder" && merchant ? (
             <>
@@ -1008,7 +1089,7 @@ function Workspace({
             <>
               <p>
                 {t(
-                  "This cancels the effect of this entry. Both the original entry and the undo stay in the history so you can see what happened.",
+                  "Delete this entry? Its effect on the merchant balance and cash is cancelled. It is removed from the main list. A copy stays under Deleted entries for your records.",
                   "يضيف هذا قيداً عكسياً دائماً مع الاحتفاظ بالمعاملة الأصلية.",
                 )}
               </p>
@@ -1017,7 +1098,7 @@ function Workspace({
                 <strong>{money(reversal.delta)}</strong>
               </div>
               <button
-                className="primary full"
+                className="primary danger full"
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
@@ -1039,27 +1120,33 @@ function Workspace({
                         reverses: reversal.id,
                         allow_credit: true,
                         occurred_at: new Date().toISOString(),
-                        note: "Reversal of " + reversal.reference,
+                        note: deletionNote(reversal.reference),
                       },
                     });
                     setModal(undefined);
                     notify(
                       t(
-                        "Reversal saved locally.",
+                        "Entry deleted. A copy is kept under Deleted entries.",
                         "تم حفظ القيد العكسي محلياً.",
                       ),
+                    );
+                  } catch (error) {
+                    notify(
+                      error instanceof Error
+                        ? friendly(error.message)
+                        : "Unable to delete. Please retry.",
                     );
                   } finally {
                     setBusy(false);
                   }
                 }}
               >
-                {t("Confirm undo", "تأكيد العكس")}
+                {t("Delete entry", "تأكيد العكس")}
               </button>
             </>
           ) : (
             <EntryForm
-              merchants={state.merchants}
+              merchants={state.merchants.filter((m) => !m.deleted_at)}
               selected={merchant}
               kind={modal === "adjustment" ? "adjustment" : "payment"}
               onSave={async (op, share) => {

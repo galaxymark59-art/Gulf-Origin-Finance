@@ -34,17 +34,11 @@ export function Auth() {
       <section className="auth-intro">
         <img src={appMark} alt="" width="64" />
         <p className="eyebrow">MCUBE EXPORTERS</p>
-        <h1>
-          Every collection.
-          <br />
-          Clearly accounted for.
-        </h1>
-        <p>
-          A private workspace for your merchants, payments and peace of mind.
-        </p>
+        <h1>Mcube Exporters</h1>
+        <p>Manage merchants, collections and expenses.</p>
         <div className="auth-note">
           <ShieldCheck size={20} />
-          Your business. Your eyes only.
+          Private access
         </div>
       </section>
       <section className="auth-panel">
