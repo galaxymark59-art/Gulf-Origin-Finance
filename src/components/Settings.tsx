@@ -8,6 +8,7 @@ import {
   LockKeyhole,
   LogOut,
   Bell,
+  Palette,
 } from "lucide-react";
 import { Field } from "./Common";
 import { useText } from "../i18n";
@@ -20,6 +21,7 @@ import { downloadBlob } from "../documents";
 import { can } from "../finance";
 import { ChangePassword } from "./ChangePassword";
 import { NotificationSettings } from "./NotificationSettings";
+import { ThemeCatalog } from "./ThemeCatalog";
 import { type usePaymentAlerts } from "../notifications";
 export function Settings({
   state,
@@ -99,6 +101,9 @@ export function Settings({
         <nav className="settings-nav" aria-label="Settings sections">
           {[
             ["business", t("Business profile", "بيانات الشركة"), Building2],
+            ...(state.member?.role === "owner"
+              ? [["themes", "Themes", Palette]]
+              : []),
             ["security", t("Security", "الأمان"), ShieldCheck],
             ...(state.member?.id === state.businessOwner &&
             state.member?.role === "owner"
@@ -121,6 +126,12 @@ export function Settings({
           ))}
         </nav>
         <section className="card settings-content">
+          {tab === "themes" && state.member?.role === "owner" && (
+            <ThemeCatalog
+              value={state.business.theme}
+              onApply={(id) => engine.changeTheme(id)}
+            />
+          )}
           {tab === "notifications" && (
             <NotificationSettings
               state={state}
@@ -620,7 +631,7 @@ export function Settings({
               </form>
             </>
           )}
-          <footer className="version">Mcube Exporters · v1.1.1</footer>
+          <footer className="version">Mcube Exporters · v1.1.2</footer>
         </section>
       </div>
     </>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { emptyState, day, visibleState } from "./domain";
 import { LanguageContext } from "./i18n";
@@ -12,6 +12,9 @@ import { EntryForm } from "./components/Forms";
 import type { FinanceEngine } from "./engine";
 import { entryDeletions, cashDeletions, merchantDeletions } from "./deletion";
 import "./style.css";
+import "./themes.css";
+import { applyTheme } from "./themes";
+import { ThemeCatalog } from "./components/ThemeCatalog";
 if (!import.meta.env.DEV)
   throw Error("Fictional QA is only available in development.");
 const initial = emptyState("00000000-0000-4000-8000-000000000099"),
@@ -78,6 +81,9 @@ function QA() {
       sent: () => {},
       reverse: () => {},
     };
+  useLayoutEffect(() => {
+    applyTheme(state.business.theme);
+  }, [state.business.theme]);
   return (
     <LanguageContext value="en">
       <div className="content" style={{ maxWidth: 1250, margin: "auto" }}>
@@ -128,6 +134,7 @@ function QA() {
             "more",
             "collection",
             "correction",
+            "themes",
           ].map((p) => (
             <button className="secondary" key={p} onClick={() => setPage(p)}>
               {p}
@@ -162,7 +169,16 @@ function QA() {
           </button>
         </div>
         {message && <p role="status">{message}</p>}
-        {page === "more" ? (
+        {page === "themes" && state.member?.role === "owner" ? (
+          <section className="card panel">
+            <ThemeCatalog
+              value={state.business.theme}
+              onApply={async (id) => {
+                setS((v) => ({ ...v, business: { ...v.business, theme: id } }));
+              }}
+            />
+          </section>
+        ) : page === "more" ? (
           <More
             state={state}
             onOpen={(p) =>

@@ -141,3 +141,41 @@ it("saves all selected deletions together and recovers them after restart", asyn
   expect(restarted.view().merchants[0].balance).toBe(40000);
   write.mockRestore();
 });
+
+it("persists an owner's theme without changing finance or archive records", async () => {
+  const state = fixture();
+  state.business.deleted_merchants = { archived: "2026-10-14T10:00:00Z" };
+  state.merchants = [{ id: "merchant", balance: 40000 } as Merchant];
+  mocks.disk.set("state:owner", state);
+  const engine = new FinanceEngine("owner");
+  await engine.initialize();
+  await engine.changeTheme("obsidian-amber");
+  const restarted = new FinanceEngine("owner");
+  await restarted.initialize();
+  expect(restarted.view().business.theme).toBe("obsidian-amber");
+  expect(restarted.view().business.deleted_merchants).toEqual(
+    state.business.deleted_merchants,
+  );
+  expect(restarted.view().merchants[0].balance).toBe(40000);
+  expect(restarted.view().entries).toEqual(state.entries);
+  expect(restarted.state.queue).toHaveLength(1);
+  await expect(restarted.changeTheme("unknown-theme")).rejects.toThrow(
+    "Choose a theme",
+  );
+});
+
+it("does not allow collectors or viewers to save a business theme", async () => {
+  for (const role of ["collector", "viewer"] as const) {
+    const state = fixture();
+    mocks.disk.set("state:owner", {
+      ...state,
+      member: { ...state.member, role },
+    });
+    const engine = new FinanceEngine("owner");
+    await engine.initialize();
+    await expect(engine.changeTheme("royal-blue")).rejects.toThrow(
+      "Only a business owner",
+    );
+    expect(engine.state.queue).toEqual([]);
+  }
+});
