@@ -1,3 +1,4 @@
+import { activeRecords } from "./deletion";
 import {
   day,
   emptyState,
@@ -155,6 +156,8 @@ export function cashDay(
   date: string,
   scope: string | null = null,
 ) {
+  const activeEntries = activeRecords(state.entries);
+  const activeMovements = activeRecords(state.cashMovements);
   const accounts = state.cashAccounts.filter(
     (a) => (!scope || a.id === scope) && a.start_on <= date,
   );
@@ -163,10 +166,10 @@ export function cashDay(
     const a = accountByUser.get(user);
     return Boolean(a && day(stamp) >= a.start_on && day(stamp) <= date);
   };
-  const payments = state.entries.filter(
+  const payments = activeEntries.filter(
     (e) => eligible(cashActor(e), e.occurred_at) && cashFromPayment(e) !== 0,
   );
-  const movements = state.cashMovements.filter((e) =>
+  const movements = activeMovements.filter((e) =>
     eligible(e.cash_user, e.occurred_at),
   );
   const beforePayments = payments
@@ -180,7 +183,7 @@ export function cashDay(
     beforePayments +
     beforeMoves;
   const todayPayments = payments.filter((e) => day(e.occurred_at) === date);
-  const todayMoves = state.cashMovements.filter(
+  const todayMoves = activeMovements.filter(
     (e) =>
       day(e.occurred_at) === date &&
       (!scope || e.cash_user === scope) &&
@@ -194,11 +197,11 @@ export function cashDay(
   const otherIn = todayMoves
     .filter((e) => ["other_in", "transfer_in"].includes(effectiveKind(e) || ""))
     .reduce((s, e) => s + e.cash_delta, 0);
-  const otherPaid = -todayMoves
+  const otherPaid = todayMoves
     .filter((e) =>
       ["other_out", "transfer_out"].includes(effectiveKind(e) || ""),
     )
-    .reduce((s, e) => s + e.cash_delta, 0);
+    .reduce((s, e) => s - e.cash_delta, 0);
   const withdrawnToCash = todayMoves
     .filter(
       (e) =>
@@ -218,7 +221,7 @@ export function cashDay(
   );
   const missing = [
     ...new Set(
-      state.entries
+      activeEntries
         .filter(
           (e) =>
             (!scope || cashActor(e) === scope) &&
@@ -260,7 +263,7 @@ export function cashDay(
 
 export function savingsPeriod(state: State, from: string, to: string) {
   const account = state.savingsAccount;
-  const relevant = state.cashMovements.filter(
+  const relevant = activeRecords(state.cashMovements).filter(
     (e) =>
       account &&
       day(e.occurred_at) >= account.start_on &&
@@ -278,9 +281,9 @@ export function savingsPeriod(state: State, from: string, to: string) {
     added: entries
       .filter((e) => e.savings_delta > 0)
       .reduce((s, e) => s + e.savings_delta, 0),
-    withdrawn: -entries
+    withdrawn: entries
       .filter((e) => e.savings_delta < 0)
-      .reduce((s, e) => s + e.savings_delta, 0),
+      .reduce((s, e) => s - e.savings_delta, 0),
     closing: opening + entries.reduce((s, e) => s + e.savings_delta, 0),
     entries,
   };

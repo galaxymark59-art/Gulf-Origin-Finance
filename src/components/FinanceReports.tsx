@@ -1,4 +1,5 @@
 import { personLabel, personName } from "../presentation";
+import { activeRecords } from "../deletion";
 import { useState } from "react";
 import { day, money, collection, type State } from "../domain";
 import { can, actor } from "../finance";
@@ -32,7 +33,7 @@ export function Reports({
     [merchant, setMerchant] = useState(""),
     [kind, setKind] = useState(""),
     [busy, setBusy] = useState(false);
-  const entries = state.entries.filter(
+  const entries = activeRecords(state.entries).filter(
     (e) =>
       day(e.occurred_at) >= from &&
       day(e.occurred_at) <= to &&
@@ -263,7 +264,7 @@ export function Reports({
                   </tr>
                 </thead>
                 <tbody>
-                  {state.cashMovements
+                  {activeRecords(state.cashMovements)
                     .filter(
                       (e) =>
                         day(e.occurred_at) >= from &&

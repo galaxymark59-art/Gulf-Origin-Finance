@@ -1,6 +1,7 @@
-import { deletedIds } from "../deletion";
+import { deletedIds, deletableEntries } from "../deletion";
+import { useBulkDelete } from "./BulkDelete";
 import { personName } from "../presentation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   day,
   dateTime,
@@ -54,6 +55,23 @@ export function Goods({
     )
     .slice()
     .reverse();
+  useEffect(
+    () =>
+      setPage((current) =>
+        Math.min(current, Math.max(0, Math.ceil(entries.length / 30) - 1)),
+      ),
+    [entries.length],
+  );
+  const eligible = new Set(deletableEntries(state).map((e) => e.id));
+  const selection = useBulkDelete(
+    showDeleted
+      ? []
+      : entries
+          .filter((e) => eligible.has(e.id))
+          .map((e) => ({ id: e.id, label: e.reference })),
+    can(state.member, "record_transactions") ? actions.bulkDelete : undefined,
+    "entries",
+  );
   async function original(e: Entry, share: boolean) {
     if (busy) return;
     setBusy(true);
@@ -150,6 +168,7 @@ export function Goods({
           />
         </label>
       </div>
+      {selection.toolbar}
       {state.entries.some((e) => e.kind === kind && deleted.has(e.id)) && (
         <div className="deleted-toolbar">
           <button
@@ -176,6 +195,8 @@ export function Goods({
             <table>
               <thead>
                 <tr>
+                  {actions.bulkDelete &&
+                    can(state.member, "record_transactions") && <th>Select</th>}
                   <th>Merchant / reference</th>
                   <th>Date / recorded by</th>
                   <th>Items</th>
@@ -193,6 +214,10 @@ export function Goods({
                   );
                   return (
                     <tr key={e.id}>
+                      {actions.bulkDelete &&
+                        can(state.member, "record_transactions") && (
+                          <td>{selection.checkbox(e.id)}</td>
+                        )}
                       <td>
                         <button className="link" onClick={() => onMerchant(m)}>
                           {m.name}

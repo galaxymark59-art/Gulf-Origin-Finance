@@ -20,13 +20,23 @@ describe("financial correctness", () => {
     const date = "2026-10-13T07:00:00Z";
     const entries = [
       {
+        id: "kept-payment",
         kind: "payment",
-        amount: 100000,
-        delta: -100000,
+        amount: 90000,
+        delta: -90000,
         occurred_at: date,
         method: "cash",
       },
       {
+        id: "deleted-payment",
+        kind: "payment",
+        amount: 10000,
+        delta: -10000,
+        occurred_at: date,
+        method: "cash",
+      },
+      {
+        id: "adjustment",
         kind: "adjustment",
         amount: 0,
         delta: 300000,
@@ -34,6 +44,8 @@ describe("financial correctness", () => {
         method: "adjustment",
       },
       {
+        id: "cancel-payment",
+        reverses: "deleted-payment",
         kind: "reversal",
         amount: 10000,
         delta: 10000,
@@ -41,6 +53,8 @@ describe("financial correctness", () => {
         method: "cash",
       },
       {
+        id: "cancel-adjustment",
+        reverses: "adjustment",
         kind: "reversal",
         amount: 0,
         delta: -300000,

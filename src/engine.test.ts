@@ -20,6 +20,7 @@ vi.mock("./client", () => ({
 }));
 import { FinanceEngine } from "./engine";
 import { emptyState, type Operation } from "./domain";
+import type { Merchant, Entry } from "./domain";
 const fixture = () => ({
   ...emptyState("owner"),
   member: {
@@ -99,5 +100,44 @@ it("does not claim a save when durable storage rejects it", async () => {
     }),
   ).rejects.toThrow("Disk full");
   expect(engine.state.queue).toHaveLength(0);
+  write.mockRestore();
+});
+
+it("saves all selected deletions together and recovers them after restart", async () => {
+  const state = fixture();
+  state.merchants = [
+    { id: "merchant", balance: 20000, version: 1 } as Merchant,
+  ];
+  state.entries = [1, 2].map(
+    (i) =>
+      ({
+        id: "paid-" + i,
+        merchant_id: "merchant",
+        kind: "payment",
+        amount: 10000,
+        delta: -10000,
+        created_at: "2026-10-14T10:0" + i + ":00Z",
+        occurred_at: "2026-10-14T10:0" + i + ":00Z",
+        reference: "QA " + i,
+        note: "",
+        method: "cash",
+      }) as Entry,
+  );
+  mocks.disk.set("state:owner", state);
+  const engine = new FinanceEngine("owner");
+  await engine.initialize();
+  const storage = await import("./storage");
+  const write = vi.spyOn(storage, "writeLocal");
+  expect(
+    await engine.deleteSelected(
+      "entries",
+      state.entries.map((e) => e.id),
+    ),
+  ).toBe(2);
+  expect(write).toHaveBeenCalledTimes(1);
+  const restarted = new FinanceEngine("owner");
+  await restarted.initialize();
+  expect(restarted.state.queue).toEqual(engine.state.queue);
+  expect(restarted.view().merchants[0].balance).toBe(40000);
   write.mockRestore();
 });

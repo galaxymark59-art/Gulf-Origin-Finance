@@ -455,6 +455,10 @@ function Workspace({
     }
   }
   const actions: EntryActions = {
+    bulkDelete: async (ids) => {
+      const count = await engine.deleteSelected("entries", ids);
+      notify(count + " entries deleted on this device. Syncing to the cloud.");
+    },
     download: (e) => void receiptAction(e, "download"),
     share: (e) => void receiptAction(e, "share"),
     sent: (e) => void receiptAction(e, "sent"),
@@ -696,6 +700,12 @@ function Workspace({
           ) : page === "merchants" ? (
             <Merchants
               state={state}
+              onDelete={async (ids) => {
+                await engine.deleteSelected("merchants", ids);
+                notify(
+                  "Merchants moved to Deleted merchants. Syncing to the cloud.",
+                );
+              }}
               onMerchant={openMerchant}
               onAdd={() => setModal("merchant")}
               onImport={() => setPage("import")}
@@ -926,12 +936,20 @@ function Workspace({
           ) : page === "cash" ? (
             <Cash
               state={state}
+              onDelete={async (ids) => {
+                await engine.deleteSelected("cash", ids);
+                notify("Entries deleted on this device. Syncing to the cloud.");
+              }}
               onSave={(op) => engine.enqueue(op)}
               notify={notify}
             />
           ) : page === "savings" ? (
             <Savings
               state={state}
+              onDelete={async (ids) => {
+                await engine.deleteSelected("cash", ids);
+                notify("Entries deleted on this device. Syncing to the cloud.");
+              }}
               onSave={(op) => engine.enqueue(op)}
               notify={notify}
             />

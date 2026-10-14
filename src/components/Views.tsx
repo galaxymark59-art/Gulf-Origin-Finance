@@ -1,6 +1,7 @@
-import { deletedIds } from "../deletion";
+import { deletedIds, deletableEntries } from "../deletion";
+import { useBulkDelete } from "./BulkDelete";
 import { personName, personLabel } from "../presentation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -30,6 +31,7 @@ export type EntryActions = {
   share: (e: Entry) => void;
   sent: (e: Entry) => void;
   reverse: (e: Entry) => void;
+  bulkDelete?: (ids: string[]) => Promise<unknown>;
 };
 export function Ledger({
   state,
@@ -47,6 +49,23 @@ export function Ledger({
   const sorted = entries
     .filter((e) => deleted.has(e.id) === showDeleted)
     .reverse();
+  useEffect(
+    () =>
+      setPage((current) =>
+        Math.min(current, Math.max(0, Math.ceil(sorted.length / 30) - 1)),
+      ),
+    [sorted.length],
+  );
+  const eligible = new Set(deletableEntries(state).map((e) => e.id));
+  const selection = useBulkDelete(
+    showDeleted
+      ? []
+      : entries
+          .filter((e) => eligible.has(e.id))
+          .map((e) => ({ id: e.id, label: e.reference })),
+    can(state.member, "record_transactions") ? actions.bulkDelete : undefined,
+    "entries",
+  );
   return !entries.length ? (
     <Empty
       title={t("No transactions yet", "لا توجد معاملات بعد")}
@@ -57,6 +76,7 @@ export function Ledger({
     />
   ) : (
     <>
+      {selection.toolbar}
       {entries.some((e) => deleted.has(e.id)) && (
         <div className="deleted-toolbar">
           <button
@@ -79,6 +99,8 @@ export function Ledger({
         <table>
           <thead>
             <tr>
+              {actions.bulkDelete &&
+                can(state.member, "record_transactions") && <th>Select</th>}
               <th>{t("Merchant / reference", "التاجر / المرجع")}</th>
               <th>{t("Date", "التاريخ")}</th>
               <th>{t("Type", "النوع")}</th>
@@ -93,6 +115,10 @@ export function Ledger({
               const reversed = state.entries.some((x) => x.reverses === e.id);
               return (
                 <tr key={e.id}>
+                  {actions.bulkDelete &&
+                    can(state.member, "record_transactions") && (
+                      <td>{selection.checkbox(e.id)}</td>
+                    )}
                   <td>
                     <strong>
                       {
@@ -399,6 +425,7 @@ export function Dashboard({
                 state.entries.filter((e) => actor(e) === state.owner),
                 today,
                 today,
+                state.entries,
               ),
             )}
           </strong>
@@ -472,11 +499,13 @@ export function Merchants({
   onMerchant,
   onAdd,
   onImport,
+  onDelete,
 }: {
   state: State;
   onMerchant: (m: Merchant) => void;
   onAdd: () => void;
   onImport?: () => void;
+  onDelete?: (ids: string[]) => Promise<unknown>;
 }) {
   const t = useText();
   const [search, setSearch] = useState("");
@@ -507,6 +536,20 @@ export function Merchants({
           ? (b.last_payment || "").localeCompare(a.last_payment || "")
           : a.name.localeCompare(b.name),
     );
+  useEffect(
+    () =>
+      setPage((current) =>
+        Math.min(current, Math.max(0, Math.ceil(merchants.length / 30) - 1)),
+      ),
+    [merchants.length],
+  );
+  const selection = useBulkDelete(
+    merchants
+      .filter((m) => !m.deleted_at)
+      .map((m) => ({ id: m.id, label: m.name })),
+    can(state.member, "manage_users") ? onDelete : undefined,
+    "merchants",
+  );
   return (
     <>
       <div className="page-heading">
@@ -581,6 +624,7 @@ export function Merchants({
           <option value="recent">{t("Recent payments", "أحدث الدفعات")}</option>
         </select>
       </div>
+      {selection.toolbar}
       {!merchants.length ? (
         <section className="card">
           <Empty
@@ -607,37 +651,45 @@ export function Merchants({
         <>
           <div className="merchant-grid">
             {merchants.slice(page * 30, (page + 1) * 30).map((m) => (
-              <button
-                className="merchant-card"
-                key={m.id}
-                onClick={() => onMerchant(m)}
-              >
-                <div className="merchant-top">
-                  <span className="avatar">
-                    {m.name.slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="badge">{m.prefix}</span>
-                  <ChevronRight size={17} />
-                </div>
-                <h2>{m.name}</h2>
-                {m.deleted_at && (
-                  <span className="badge">Deleted · open to restore</span>
+              <div className="merchant-select-card" key={m.id}>
+                {selection.checkbox(m.id) && (
+                  <label className="merchant-selection">
+                    {selection.checkbox(m.id)} Select merchant
+                  </label>
                 )}
-                <p>{m.city || m.phone}</p>
-                {isOverdue(m) && (
-                  <span className="badge overdue">
-                    Overdue since {m.due_on} · Open for reminder
-                  </span>
-                )}
-                <small>{t("Amount owed", "الرصيد الحالي")}</small>
-                <strong>{money(m.balance)}</strong>
-                <footer>
-                  {m.last_payment
-                    ? t("Last payment ", "آخر دفعة ") + dateTime(m.last_payment)
-                    : t("No payments yet", "لا توجد دفعات بعد")}
-                  <span>{m.language === "ar" ? "العربية" : "EN"}</span>
-                </footer>
-              </button>
+                <button
+                  className="merchant-card"
+                  key={m.id}
+                  onClick={() => onMerchant(m)}
+                >
+                  <div className="merchant-top">
+                    <span className="avatar">
+                      {m.name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <span className="badge">{m.prefix}</span>
+                    <ChevronRight size={17} />
+                  </div>
+                  <h2>{m.name}</h2>
+                  {m.deleted_at && (
+                    <span className="badge">Deleted · open to restore</span>
+                  )}
+                  <p>{m.city || m.phone}</p>
+                  {isOverdue(m) && (
+                    <span className="badge overdue">
+                      Overdue since {m.due_on} · Open for reminder
+                    </span>
+                  )}
+                  <small>{t("Amount owed", "الرصيد الحالي")}</small>
+                  <strong>{money(m.balance)}</strong>
+                  <footer>
+                    {m.last_payment
+                      ? t("Last payment ", "آخر دفعة ") +
+                        dateTime(m.last_payment)
+                      : t("No payments yet", "لا توجد دفعات بعد")}
+                    <span>{m.language === "ar" ? "العربية" : "EN"}</span>
+                  </footer>
+                </button>
+              </div>
             ))}
           </div>
           <div className="pagination">
